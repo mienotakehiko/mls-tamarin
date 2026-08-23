@@ -1,0 +1,17 @@
+Runs: 10
+Wall mean: 212.161000
+Wall median: 214.560000
+Wall stdev: 7.913564
+Wall min: 194.570000
+Wall max: 219.920000
+RSS mean KB: 4848499.6
+RSS mean MiB: 4734.863
+RSS stdev KB: 29538.763
+RSS min KB: 4790568
+RSS max KB: 4888740
+Verdicts observed: verified
+Steps observed: 4336
+Sources steps observed: 2
+Warnings observed: clean
+Exit codes observed: 0
+All expected and clean: True

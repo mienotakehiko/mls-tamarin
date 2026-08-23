@@ -1,0 +1,29 @@
+# clean_build_audit.txt
+#
+# This file is emitted by the clean-build wrapper used to compile the
+# Tamarin executable whose SHA-256 is pinned in
+# metadata/tamarin_binary_sha256.txt. It records everything a third
+# party needs in order to reproduce the exact binary from source.
+#
+# The template below is populated on the build host and shipped with
+# the artifact.
+
+audit_utc                  = 2026-08-21T06:15:16Z
+build_host                 = research-m-pc
+kernel                     = Linux 5.15.153.1-microsoft-standard-WSL2 x86_64
+tamarin_source_root        = /home/mieno/tamarin-clean-1.12.0/src
+tamarin_git_remote         = https://github.com/tamarin-prover/tamarin-prover.git
+tamarin_git_revision       = 82780bbaf3328a45f624ddb41e51bf75425f851c
+tamarin_git_branch_at_head = HEAD (detached at 82780bba)
+tamarin_declared_version   = 1.12.0
+maude_version              = 3.5.1
+ghc_version                = see build log
+cabal_version              = see build log
+build_command              = cabal v2-install exe:tamarin-prover
+                              --overwrite-policy=always
+                              --installdir=/home/mieno/tamarin-clean-1.12.0/bin
+                              --install-method=copy
+                              --program-suffix=-1.12.0-clean
+installed_binary           = /home/mieno/tamarin-clean-1.12.0/bin/tamarin-prover-1.12.0-clean
+installed_binary_sha256    = 39cfd71ce7cd9028badbcf22729c807a78040ebc9665207d52f140994bf596a0
+dirty_marker_at_build      = no

@@ -1,0 +1,11 @@
+rep,wall_seconds,max_rss_kb,exit_code,verdict,steps,sources_steps,warnings
+1,54.33,951688,0,verified,1347,2,clean
+2,56.27,972760,0,verified,1347,2,clean
+3,58.58,962344,0,verified,1347,2,clean
+4,53.04,961044,0,verified,1347,2,clean
+5,54.54,950292,0,verified,1347,2,clean
+6,60.72,955764,0,verified,1347,2,clean
+7,52.93,965996,0,verified,1347,2,clean
+8,52.09,965788,0,verified,1347,2,clean
+9,51.71,965216,0,verified,1347,2,clean
+10,53.20,963688,0,verified,1347,2,clean

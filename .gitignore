@@ -1,0 +1,11 @@
+# Editor and OS scratch
+*~
+*.swp
+.DS_Store
+
+# Python cache emitted by scripts/summarise_repeat.py
+__pycache__/
+*.pyc
+
+# Tamarin scratch
+*.tmp

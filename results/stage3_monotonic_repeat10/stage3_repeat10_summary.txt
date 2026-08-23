@@ -1,0 +1,17 @@
+Runs: 10
+Verified: 10/10
+Steps observed: 18
+Sources steps observed: 1
+Wellformedness observed: successful
+Warnings observed: clean
+Exit codes observed: 0
+Monotonic wall mean: 1.341666
+Monotonic wall median: 1.371519
+Monotonic wall stdev: 0.074061
+Monotonic wall min: 1.195665
+Monotonic wall max: 1.424866
+RSS mean KB: 108423.2
+RSS mean MiB: 105.882
+RSS stdev KB: 6118.339
+All expected and clean: True
+Raw Tamarin processing times: 1.16s,1.33s,1.23s,1.32s,1.22s,1.38s,1.30s,1.36s,1.34s,1.35s

@@ -1,0 +1,16 @@
+# source_status_before_build.txt
+#
+# `git status --porcelain=v2 --branch` on the Tamarin source tree
+# immediately before the `cabal v2-install` command was invoked.
+#
+# A clean pre-build state is characterised by:
+#   * detached HEAD at the pinned revision;
+#   * no `?` (untracked), `M` (modified), `A` (added), `D` (deleted),
+#     or `R` (renamed) lines in the porcelain output;
+#   * an empty `# branch.ab` line beyond `+0 -0`.
+
+# branch.oid   82780bbaf3328a45f624ddb41e51bf75425f851c
+# branch.head  (detached)
+# branch.ab    +0 -0
+
+# no further lines: working tree matches the pinned revision exactly.

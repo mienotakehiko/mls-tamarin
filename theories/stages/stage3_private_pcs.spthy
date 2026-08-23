@@ -1,0 +1,369 @@
+theory MLS_RatchetTree_Stage3_PrivatePCS
+
+/*
+  Artifact stage provenance:
+  Historical private-KDF PCS feasibility model used for the initial L3
+  experiment. This result is retained as a diagnostic abstraction, not as
+  the final PCS claim.
+*/
+/*
+  Ratchet-Tree Forward-Secrecy extension of the confirmed
+  mls_ratchet_tree_normal_AB_wf.spthy model.
+
+  The core Stages 0--6 are unchanged except for auxiliary action/state
+  facts used only by the security game:
+
+    - !EpochNodeState(ps):
+        persistent bookkeeping fact identifying a Ratchet-Tree epoch
+        node state. It is NOT sent to the adversary by itself.
+
+    - FS_Send(m, ps):
+        an application-message probe encrypted under node_pk(ps).
+        The probe models a message sent in the pre-update epoch.
+
+    - FS_Update(ps_old, ps_new):
+        records Charlie's fresh Stage-5 node update.
+
+    - RevealNode(ps):
+        explicit compromise oracle. It outputs both the path secret ps
+        and the derived node private key node_sk(ps), encoded as a pair.
+        Because node_sk/1 is intentionally [private] in the normal model,
+        this oracle is the only explicit attacker interface that releases
+        the derived private key.
+
+  Security intent:
+    L1_baseline_secrecy:
+      final Stage-6 MESSAGE secrecy when no node compromise occurs.
+
+    L2_forward_secrecy:
+      a message sent under ps_old remains secret after a fresh transition
+      ps_old -> ps_new followed by compromise of ps_new, provided ps_old
+      itself is never directly revealed.
+
+    L2_same_epoch_reveal_control:
+      negative control; the same secrecy claim is expected to be falsified
+      when ps_old itself is revealed after the send.
+
+
+  PCS extension:
+    - exec_pcs_healing:
+        old epoch compromised -> fresh update -> new-epoch message.
+    - L3_post_compromise_security:
+        after compromising ps_old, a fresh update to ps_new heals secrecy
+        for a message sent under ps_new, provided ps_new itself is not revealed.
+    - L3_healed_epoch_reveal_control:
+        negative control; if ps_new itself is revealed, the secrecy claim
+        must be falsified.
+
+  No ValidKP fact/restriction is added. The previously confirmed
+  well-formedness fixes and node_sk/1 [private] abstraction are retained.
+*/
+
+begin
+
+builtins: asymmetric-encryption, hashing, signing
+
+// -- A: node_sk is PRIVATE (no builtin adversary derivation) --
+functions: node_sk/1 [private], node_pk/1
+// The equation is terminating/non-overlapping but not syntactically subterm-convergent.
+// Mark it convergent explicitly to suppress the corresponding well-formedness warning.
+equations [convergent]: node_pk(ps) = pk(node_sk(ps))
+
+// ============================================================
+// Long-term identities and AS
+// ============================================================
+
+rule AS_Setup:
+    [ Fr(~sk_as) ]
+  --[ AS_Init(~sk_as) ]->
+    [ !AS(~sk_as), Out(pk(~sk_as)) ]
+
+rule Alice_LTK:
+    [ Fr(~sk_alice) ]
+  --[ AliceKey(~sk_alice) ]->
+    [ !AliceLTK(~sk_alice), Out(pk(~sk_alice)) ]
+
+// -- B: KeyPackage generation writes ONE persistent fact only.
+rule Bob_generates_kp:
+    [ Fr(~sk_b) ]
+  --[ BobKPgen(~sk_b) ]->
+    [ !Bob_KP(~sk_b, pk(~sk_b)),
+      Out(<'kpg_b', pk(~sk_b)>) ]
+
+rule Charlie_generates_kp:
+    [ Fr(~sk_c) ]
+  --[ CharlieKPgen(~sk_c) ]->
+    [ !Charlie_KP(~sk_c, pk(~sk_c)),
+      Out(<'kpg_c', pk(~sk_c)>) ]
+
+// ============================================================
+// Stage 1 : Alice creates the group
+// ============================================================
+
+rule S1_Alice_creates_group:
+    [ !AliceLTK(sk_alice), Fr(~g), Fr(~ps_a), Fr(~epoch0) ]
+  --[ S1_Create(~g, ~ps_a) ]->
+    [ Alice_S1(~g, ~ps_a, h(~ps_a), ~epoch0, sk_alice),
+      !Group(~g) ]
+
+// ============================================================
+// Stage 2 : Alice invites Bob
+// ============================================================
+
+rule S2_Alice_invites_Bob:
+    let ps_x        = h(ps_a)
+        joiner      = h(<epoch0, h(ps_x)>)
+        welcome_body= <'Bob', ps_x, joiner>
+        sig         = sign(welcome_body, sk_alice)
+    in
+    [ Alice_S1(g, ps_a, ps_x, epoch0, sk_alice),
+      In(<'kpg_b', pk_b>) ]
+  --[ S2_Invite(g, 'Bob'), Welcome(g, ps_x) ]->
+    [ Alice_S2(g, ps_a, ps_x, epoch0, sk_alice),
+      Out(<aenc(welcome_body, pk_b), sig>) ]
+
+// -- B: Bob explicitly adec()s the Welcome so 'joiner' and 'ps_x'
+//       are derivable from premises (Msg Derivation Check).
+rule S2_Bob_joins:
+    let welcome_body = adec(cipher, sk_b)
+    in
+    [ !Bob_KP(sk_b, pk_b),
+      In(<cipher, sig>),
+      In(pk_alice) ]
+  --[ S2_Join('Bob', welcome_body),
+      Eq(verify(sig, welcome_body, pk_alice), true) ]->
+    [ Bob_S2(welcome_body) ]
+
+// ============================================================
+// Stage 3 : Bob updates his node
+// ============================================================
+
+rule S3_Bob_update:
+    let ps_x_new = h(~ps_b)
+        pk_a     = node_pk(ps_x_old)
+    in
+    [ Bob_S2(<'Bob', ps_x_old, joiner>), Fr(~ps_b) ]
+  --[ S3_Update('Bob', ~ps_b, ps_x_new) ]->
+    [ Bob_S3(~ps_b, ps_x_new),
+      Out(<'commit_bob', aenc(ps_x_new, pk_a)>) ]
+
+rule S3_Alice_receives_commit [no_derivcheck]:
+    let pk_a = node_pk(ps_x_old)
+    in
+    [ Alice_S2(g, ps_a, ps_x_old, epoch0, sk_alice),
+      In(<'commit_bob', aenc(ps_x_new, pk_a)>) ]
+  --[ S3_Alice_sync(g, ps_x_new) ]->
+    [ Alice_S3(g, ps_x_new, sk_alice) ]
+
+// ============================================================
+// Stage 4 : Alice invites Charlie
+// ============================================================
+
+rule S4_Alice_invites_Charlie:
+    let ps_w        = h(ps_x_new)
+        joiner      = h(<'ep3', ps_w>)
+        welcome_body= <'Charlie', ps_w, joiner>
+        sig         = sign(welcome_body, sk_alice)
+    in
+    [ Alice_S3(g, ps_x_new, sk_alice),
+      In(<'kpg_c', pk_c>) ]
+  --[ S4_Invite(g, 'Charlie'), Welcome_W(g, ps_w) ]->
+    [ Alice_S4(g, ps_w),
+      !EpochNodeState(ps_w),
+      Out(<aenc(welcome_body, pk_c), sig>) ]
+
+rule S4_Charlie_joins:
+    let welcome_body = adec(cipher, sk_c)
+    in
+    [ !Charlie_KP(sk_c, pk_c),
+      In(<cipher, sig>),
+      In(pk_alice) ]
+  --[ S4_Join('Charlie', welcome_body),
+      Eq(verify(sig, welcome_body, pk_alice), true) ]->
+    [ Charlie_S4(welcome_body) ]
+
+rule S4_Bob_syncs:
+    let ps_w = h(ps_x_new) in
+    [ Bob_S3(ps_b, ps_x_new) ]
+  --[ S4_Bob_syncW(ps_w) ]->
+    [ Bob_S4(ps_w) ]
+
+// ============================================================
+// Stage 5 : Charlie updates node W
+// ============================================================
+
+rule S5_Charlie_update:
+    let ps_w_new = h(~ps_c)
+        pk_w_old = node_pk(ps_w_old)
+    in
+    [ Charlie_S4(<'Charlie', ps_w_old, joiner>), Fr(~ps_c) ]
+  --[ S5_Update('Charlie', ~ps_c, ps_w_new),
+      FS_Update(ps_w_old, ps_w_new) ]->
+    [ Charlie_S5(ps_w_new),
+      !EpochNodeState(ps_w_new),
+      Out(<'commit_charlie', aenc(ps_w_new, pk_w_old)>) ]
+
+rule S5_Alice_sync [no_derivcheck]:
+    let pk_w_old = node_pk(ps_w_old) in
+    [ Alice_S4(g, ps_w_old),
+      In(<'commit_charlie', aenc(ps_w_new, pk_w_old)>) ]
+  --[ S5_Alice_syncW(g, ps_w_new) ]->
+    [ Alice_S5(g, ps_w_new) ]
+
+rule S5_Bob_sync [no_derivcheck]:
+    let pk_w_old = node_pk(ps_w_old) in
+    [ Bob_S4(ps_w_old),
+      In(<'commit_charlie', aenc(ps_w_new, pk_w_old)>) ]
+  --[ S5_Bob_syncW(ps_w_new) ]->
+    [ Bob_S5(ps_w_new) ]
+
+// ============================================================
+// Forward-secrecy experiment interface
+// ============================================================
+
+// Application-message probe for an epoch node state.
+// !EpochNodeState is persistent, so this auxiliary probe does not consume
+// the protocol state used by the normal-flow rules.
+rule FS_Send_epoch_probe:
+    let pk_w = node_pk(ps_w) in
+    [ !EpochNodeState(ps_w), Fr(~fs_msg) ]
+  --[ FS_Send(~fs_msg, ps_w) ]->
+    [ Out(aenc(~fs_msg, pk_w)) ]
+
+// Explicit compromise oracle.
+// The pair releases both the path secret and the derived node private key.
+// [no_derivcheck] is intentional: node_sk/1 is private, while this rule
+// models the exceptional capability obtained by compromise.
+rule Reveal_NodeState [no_derivcheck]:
+    [ !EpochNodeState(ps_w) ]
+  --[ RevealNode(ps_w) ]->
+    [ Out(<ps_w, node_sk(ps_w)>) ]
+
+// ============================================================
+// Stage 6 : Charlie sends the secret MESSAGE
+// ============================================================
+
+rule S6_Charlie_sends:
+    let pk_w = node_pk(ps_w) in
+    [ Charlie_S5(ps_w), Fr(~msg) ]
+  --[ S6_Send('Charlie', ~msg), Secret_MSG(~msg) ]->
+    [ Out(aenc(~msg, pk_w)),
+      !SentMsg(~msg) ]
+
+rule S6_Alice_recv [no_derivcheck]:
+    let pk_w = node_pk(ps_w) in
+    [ Alice_S5(g, ps_w), In(aenc(m, pk_w)) ]
+  --[ S6_Recv('Alice', m) ]->
+    [ ]
+
+rule S6_Bob_recv [no_derivcheck]:
+    let pk_w = node_pk(ps_w) in
+    [ Bob_S5(ps_w), In(aenc(m, pk_w)) ]
+  --[ S6_Recv('Bob', m) ]->
+    [ ]
+
+// ============================================================
+restriction eq_check:
+    "All x y #i. Eq(x,y) @ i ==> x = y"
+
+// ============================================================
+// Sanity & Security lemmas (same set as before)
+// ============================================================
+
+lemma exec_normal_flow_alice_recv: exists-trace
+    " Ex m #s #ra.
+        S6_Send('Charlie', m) @ s
+      & S6_Recv('Alice', m) @ ra
+      & #s < #ra "
+
+lemma exec_normal_flow_bob_recv: exists-trace
+    " Ex m #s #rb.
+        S6_Send('Charlie', m) @ s
+      & S6_Recv('Bob', m) @ rb
+      & #s < #rb "
+
+// Executability of the FS scenario:
+// old-epoch message -> fresh update -> compromise of the new epoch.
+lemma exec_fs_current_compromise: exists-trace
+    " Ex m ps_old ps_new #s #u #r.
+        FS_Send(m, ps_old) @ s
+      & FS_Update(ps_old, ps_new) @ u
+      & RevealNode(ps_new) @ r
+      & #s < #u
+      & #u < #r "
+
+// Baseline secrecy: with no explicit node-state compromise anywhere,
+// the final Stage-6 MESSAGE remains secret.
+lemma L1_baseline_secrecy:
+    " All m #s.
+        Secret_MSG(m) @ s
+      & not (Ex ps #r. RevealNode(ps) @ r)
+      ==> not (Ex #j. K(m) @ j) "
+
+// Forward secrecy:
+// A message protected by the old epoch remains secret even if the new
+// epoch is compromised after a fresh update, as long as the target old
+// epoch itself is never directly compromised.
+lemma L2_forward_secrecy:
+    " All m ps_old ps_new #s #u #r.
+        FS_Send(m, ps_old) @ s
+      & FS_Update(ps_old, ps_new) @ u
+      & RevealNode(ps_new) @ r
+      & #s < #u
+      & #u < #r
+      & not (Ex #ro. RevealNode(ps_old) @ ro)
+      ==> not (Ex #j. K(m) @ j) "
+
+// Negative control (EXPECTED: falsified):
+// revealing the very epoch that protected the message should allow the
+// adversary to decrypt that message.
+lemma L2_same_epoch_reveal_control:
+    " All m ps #s #r.
+        FS_Send(m, ps) @ s
+      & RevealNode(ps) @ r
+      & #s < #r
+      ==> not (Ex #j. K(m) @ j) "
+
+
+// ============================================================
+// Post-compromise-security (PCS / healing) lemmas
+// ============================================================
+
+// Executability of the PCS scenario:
+// compromise old epoch -> fresh update -> send under the healed new epoch.
+lemma exec_pcs_healing: exists-trace
+    " Ex m ps_old ps_new #r #u #s.
+        RevealNode(ps_old) @ r
+      & FS_Update(ps_old, ps_new) @ u
+      & FS_Send(m, ps_new) @ s
+      & #r < #u
+      & #u < #s "
+
+// Post-compromise security:
+// compromise of the old epoch does not reveal a message sent after a
+// fresh update, provided the healed target epoch itself is not revealed.
+lemma L3_post_compromise_security:
+    " All m ps_old ps_new #r #u #s.
+        RevealNode(ps_old) @ r
+      & FS_Update(ps_old, ps_new) @ u
+      & FS_Send(m, ps_new) @ s
+      & #r < #u
+      & #u < #s
+      & not (Ex #rn. RevealNode(ps_new) @ rn)
+      ==> not (Ex #j. K(m) @ j) "
+
+// Negative control (EXPECTED: falsified):
+// if the healed epoch itself is revealed, the post-update message
+// should become known to the adversary.
+lemma L3_healed_epoch_reveal_control:
+    " All m ps_old ps_new #r #u #rn #s.
+        RevealNode(ps_old) @ r
+      & FS_Update(ps_old, ps_new) @ u
+      & RevealNode(ps_new) @ rn
+      & FS_Send(m, ps_new) @ s
+      & #r < #u
+      & #u < #rn
+      & #rn < #s
+      ==> not (Ex #j. K(m) @ j) "
+
+end

@@ -1,0 +1,9 @@
+theories/stages/stage1_private_kdf.spthy: OK
+theories/stages/stage1c_public_kdf_control.spthy: OK
+theories/stages/stage2_private_fs.spthy: OK
+theories/stages/stage3_private_pcs.spthy: OK
+theories/stages/stage4_p1_public_unauth_kp.spthy: OK
+theories/stages/stage4_p2_public_valid_kp.spthy: OK
+theories/stages/stage5_public_fs.spthy: OK
+theories/stages/stage6_v1_simplified_pcs.spthy: OK
+theories/stages/stage7_v2_copath_pcs.spthy: OK

@@ -1,0 +1,11 @@
+rep,monotonic_wall_seconds,max_rss_kb,exit_code,verdict,steps,sources_step,wellformedness,warnings,tamarin_processing_time_raw
+1,1.195665317,117104,0,verified,18,1,successful,clean,1.16s
+2,1.377796421,105372,0,verified,18,1,successful,clean,1.33s
+3,1.265796402,117232,0,verified,18,1,successful,clean,1.23s
+4,1.365241163,103988,0,verified,18,1,successful,clean,1.32s
+5,1.265327808,116844,0,verified,18,1,successful,clean,1.22s
+6,1.424865733,107152,0,verified,18,1,successful,clean,1.38s
+7,1.345898199,105104,0,verified,18,1,successful,clean,1.30s
+8,1.394497776,101720,0,verified,18,1,successful,clean,1.36s
+9,1.385900570,104124,0,verified,18,1,successful,clean,1.34s
+10,1.395666333,105592,0,verified,18,1,successful,clean,1.35s

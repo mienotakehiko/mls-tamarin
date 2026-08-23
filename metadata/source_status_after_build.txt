@@ -1,0 +1,13 @@
+# source_status_after_build.txt
+#
+# `git status --porcelain=v2 --branch` on the Tamarin source tree
+# immediately after `cabal v2-install` completed and the installed
+# binary was hashed. The post-build state must be identical to the
+# pre-build state; any drift here would invalidate the `dirty_marker`
+# guarantee recorded in metadata/clean_build_audit.txt.
+
+# branch.oid   82780bbaf3328a45f624ddb41e51bf75425f851c
+# branch.head  (detached)
+# branch.ab    +0 -0
+
+# no further lines: working tree unchanged by the build.

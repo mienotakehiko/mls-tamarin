@@ -1,0 +1,589 @@
+maude tool: 'maude'
+ checking version: 3.5.1. OK.
+ checking installation: OK.
+[Theory MLS_RatchetTree_Stage3_PrivatePCS] Theory loaded
+[Theory MLS_RatchetTree_Stage3_PrivatePCS] Theory translated
+[Theory MLS_RatchetTree_Stage3_PrivatePCS] Derivation checks started
+[Theory MLS_RatchetTree_Stage3_PrivatePCS] Derivation checks ended
+[Theory MLS_RatchetTree_Stage3_PrivatePCS] Theory closed
+[Saturating Sources] Step 1 (Max 5)
+[Saturating Sources] Done
+theory MLS_RatchetTree_Stage3_PrivatePCS
+
+begin
+
+// Function signature and definition of the equational theory E
+
+functions: adec/2, aenc/2, fst/1, h/1, node_pk/1,
+           node_sk/1[private,constructor], pair/2, pk/1, sign/2, snd/1, true/0,
+           verify/3
+equations [convergent]:
+    adec(aenc(x.1, pk(x.2)), x.2) = x.1,
+    fst(<x.1, x.2>) = x.1,
+    node_pk(ps) = pk(node_sk(ps)),
+    snd(<x.1, x.2>) = x.2,
+    verify(sign(x.1, x.2), x.1, pk(x.2)) = true
+
+rule (modulo E) AS_Setup:
+   [ Fr( ~sk_as ) ]
+  --[ AS_Init( ~sk_as ) ]->
+   [ !AS( ~sk_as ), Out( pk(~sk_as) ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Alice_LTK:
+   [ Fr( ~sk_alice ) ]
+  --[ AliceKey( ~sk_alice ) ]->
+   [ !AliceLTK( ~sk_alice ), Out( pk(~sk_alice) ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Bob_generates_kp:
+   [ Fr( ~sk_b ) ]
+  --[ BobKPgen( ~sk_b ) ]->
+   [ !Bob_KP( ~sk_b, pk(~sk_b) ), Out( <'kpg_b', pk(~sk_b)> ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Charlie_generates_kp:
+   [ Fr( ~sk_c ) ]
+  --[ CharlieKPgen( ~sk_c ) ]->
+   [ !Charlie_KP( ~sk_c, pk(~sk_c) ), Out( <'kpg_c', pk(~sk_c)> ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) S1_Alice_creates_group:
+   [ !AliceLTK( sk_alice ), Fr( ~g ), Fr( ~ps_a ), Fr( ~epoch0 ) ]
+  --[ S1_Create( ~g, ~ps_a ) ]->
+   [ Alice_S1( ~g, ~ps_a, h(~ps_a), ~epoch0, sk_alice ), !Group( ~g ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) S2_Alice_invites_Bob:
+   [ Alice_S1( g, ps_a, h(ps_a), epoch0, sk_alice ), In( <'kpg_b', pk_b> ) ]
+  --[ S2_Invite( g, 'Bob' ), Welcome( g, h(ps_a) ) ]->
+   [
+   Alice_S2( g, ps_a, h(ps_a), epoch0, sk_alice ),
+   Out( <aenc(<'Bob', h(ps_a), h(<epoch0, h(h(ps_a))>)>, pk_b), 
+         sign(<'Bob', h(ps_a), h(<epoch0, h(h(ps_a))>)>, sk_alice)>
+   )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) S2_Bob_joins:
+   [ !Bob_KP( sk_b, pk_b ), In( <cipher, sig> ), In( pk_alice ) ]
+  --[
+  S2_Join( 'Bob', adec(cipher, sk_b) ),
+  Eq( verify(sig, adec(cipher, sk_b), pk_alice), true )
+  ]->
+   [ Bob_S2( adec(cipher, sk_b) ) ]
+
+  /*
+  rule (modulo AC) S2_Bob_joins:
+     [ !Bob_KP( sk_b, pk_b ), In( <cipher, sig> ), In( pk_alice ) ]
+    --[ S2_Join( 'Bob', z ), Eq( z.1, true ) ]->
+     [ Bob_S2( z ) ]
+    variants (modulo AC)
+    1. cipher
+             = cipher.10
+       pk_alice
+             = pk_alice.11
+       sig   = sig.13
+       sk_b  = sk_b.14
+       z     = adec(cipher.10, sk_b.14)
+       z.1   = verify(sig.13, adec(cipher.10, sk_b.14), pk_alice.11)
+    
+    2. cipher
+             = cipher.13
+       pk_alice
+             = pk(x.22)
+       sig   = sign(adec(cipher.13, sk_b.17), x.22)
+       sk_b  = sk_b.17
+       z     = adec(cipher.13, sk_b.17)
+       z.1   = true
+    
+    3. cipher
+             = aenc(z.13, pk(sk_b.12))
+       pk_alice
+             = pk(x.18)
+       sig   = sign(z.13, x.18)
+       sk_b  = sk_b.12
+       z     = z.13
+       z.1   = true
+    
+    4. cipher
+             = aenc(z.16, pk(sk_b.15))
+       pk_alice
+             = pk_alice.12
+       sig   = sig.14
+       sk_b  = sk_b.15
+       z     = z.16
+       z.1   = verify(sig.14, z.16, pk_alice.12)
+  */
+
+rule (modulo E) S3_Bob_update:
+   [ Bob_S2( <'Bob', ps_x_old, joiner> ), Fr( ~ps_b ) ]
+  --[ S3_Update( 'Bob', ~ps_b, h(~ps_b) ) ]->
+   [
+   Bob_S3( ~ps_b, h(~ps_b) ),
+   Out( <'commit_bob', aenc(h(~ps_b), node_pk(ps_x_old))> )
+   ]
+
+  /*
+  rule (modulo AC) S3_Bob_update:
+     [ Bob_S2( <'Bob', ps_x_old, joiner> ), Fr( ~ps_b ) ]
+    --[ S3_Update( 'Bob', ~ps_b, h(~ps_b) ) ]->
+     [
+     Bob_S3( ~ps_b, h(~ps_b) ),
+     Out( <'commit_bob', aenc(h(~ps_b), pk(node_sk(ps_x_old)))> )
+     ]
+  */
+
+rule (modulo E) S3_Alice_receives_commit[no_derivcheck]:
+   [
+   Alice_S2( g, ps_a, ps_x_old, epoch0, sk_alice ),
+   In( <'commit_bob', aenc(ps_x_new, node_pk(ps_x_old))> )
+   ]
+  --[ S3_Alice_sync( g, ps_x_new ) ]->
+   [ Alice_S3( g, ps_x_new, sk_alice ) ]
+
+  /*
+  rule (modulo AC) S3_Alice_receives_commit[no_derivcheck]:
+     [
+     Alice_S2( g, ps_a, ps_x_old, epoch0, sk_alice ),
+     In( <'commit_bob', aenc(ps_x_new, pk(node_sk(ps_x_old)))> )
+     ]
+    --[ S3_Alice_sync( g, ps_x_new ) ]->
+     [ Alice_S3( g, ps_x_new, sk_alice ) ]
+  */
+
+rule (modulo E) S4_Alice_invites_Charlie:
+   [ Alice_S3( g, ps_x_new, sk_alice ), In( <'kpg_c', pk_c> ) ]
+  --[ S4_Invite( g, 'Charlie' ), Welcome_W( g, h(ps_x_new) ) ]->
+   [
+   Alice_S4( g, h(ps_x_new) ), !EpochNodeState( h(ps_x_new) ),
+   Out( <aenc(<'Charlie', h(ps_x_new), h(<'ep3', h(ps_x_new)>)>, pk_c), 
+         sign(<'Charlie', h(ps_x_new), h(<'ep3', h(ps_x_new)>)>, sk_alice)>
+   )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) S4_Charlie_joins:
+   [ !Charlie_KP( sk_c, pk_c ), In( <cipher, sig> ), In( pk_alice ) ]
+  --[
+  S4_Join( 'Charlie', adec(cipher, sk_c) ),
+  Eq( verify(sig, adec(cipher, sk_c), pk_alice), true )
+  ]->
+   [ Charlie_S4( adec(cipher, sk_c) ) ]
+
+  /*
+  rule (modulo AC) S4_Charlie_joins:
+     [ !Charlie_KP( sk_c, pk_c ), In( <cipher, sig> ), In( pk_alice ) ]
+    --[ S4_Join( 'Charlie', z ), Eq( z.1, true ) ]->
+     [ Charlie_S4( z ) ]
+    variants (modulo AC)
+    1. cipher
+             = cipher.10
+       pk_alice
+             = pk_alice.11
+       sig   = sig.13
+       sk_c  = sk_c.14
+       z     = adec(cipher.10, sk_c.14)
+       z.1   = verify(sig.13, adec(cipher.10, sk_c.14), pk_alice.11)
+    
+    2. cipher
+             = cipher.13
+       pk_alice
+             = pk(x.22)
+       sig   = sign(adec(cipher.13, sk_c.17), x.22)
+       sk_c  = sk_c.17
+       z     = adec(cipher.13, sk_c.17)
+       z.1   = true
+    
+    3. cipher
+             = aenc(z.13, pk(sk_c.12))
+       pk_alice
+             = pk(x.18)
+       sig   = sign(z.13, x.18)
+       sk_c  = sk_c.12
+       z     = z.13
+       z.1   = true
+    
+    4. cipher
+             = aenc(z.16, pk(sk_c.15))
+       pk_alice
+             = pk_alice.12
+       sig   = sig.14
+       sk_c  = sk_c.15
+       z     = z.16
+       z.1   = verify(sig.14, z.16, pk_alice.12)
+  */
+
+rule (modulo E) S4_Bob_syncs:
+   [ Bob_S3( ps_b, ps_x_new ) ]
+  --[ S4_Bob_syncW( h(ps_x_new) ) ]->
+   [ Bob_S4( h(ps_x_new) ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) S5_Charlie_update:
+   [ Charlie_S4( <'Charlie', ps_w_old, joiner> ), Fr( ~ps_c ) ]
+  --[
+  S5_Update( 'Charlie', ~ps_c, h(~ps_c) ), FS_Update( ps_w_old, h(~ps_c) )
+  ]->
+   [
+   Charlie_S5( h(~ps_c) ), !EpochNodeState( h(~ps_c) ),
+   Out( <'commit_charlie', aenc(h(~ps_c), node_pk(ps_w_old))> )
+   ]
+
+  /*
+  rule (modulo AC) S5_Charlie_update:
+     [ Charlie_S4( <'Charlie', ps_w_old, joiner> ), Fr( ~ps_c ) ]
+    --[
+    S5_Update( 'Charlie', ~ps_c, h(~ps_c) ), FS_Update( ps_w_old, h(~ps_c) )
+    ]->
+     [
+     Charlie_S5( h(~ps_c) ), !EpochNodeState( h(~ps_c) ),
+     Out( <'commit_charlie', aenc(h(~ps_c), pk(node_sk(ps_w_old)))> )
+     ]
+  */
+
+rule (modulo E) S5_Alice_sync[no_derivcheck]:
+   [
+   Alice_S4( g, ps_w_old ),
+   In( <'commit_charlie', aenc(ps_w_new, node_pk(ps_w_old))> )
+   ]
+  --[ S5_Alice_syncW( g, ps_w_new ) ]->
+   [ Alice_S5( g, ps_w_new ) ]
+
+  /*
+  rule (modulo AC) S5_Alice_sync[no_derivcheck]:
+     [
+     Alice_S4( g, ps_w_old ),
+     In( <'commit_charlie', aenc(ps_w_new, pk(node_sk(ps_w_old)))> )
+     ]
+    --[ S5_Alice_syncW( g, ps_w_new ) ]->
+     [ Alice_S5( g, ps_w_new ) ]
+  */
+
+rule (modulo E) S5_Bob_sync[no_derivcheck]:
+   [
+   Bob_S4( ps_w_old ),
+   In( <'commit_charlie', aenc(ps_w_new, node_pk(ps_w_old))> )
+   ]
+  --[ S5_Bob_syncW( ps_w_new ) ]->
+   [ Bob_S5( ps_w_new ) ]
+
+  /*
+  rule (modulo AC) S5_Bob_sync[no_derivcheck]:
+     [
+     Bob_S4( ps_w_old ),
+     In( <'commit_charlie', aenc(ps_w_new, pk(node_sk(ps_w_old)))> )
+     ]
+    --[ S5_Bob_syncW( ps_w_new ) ]->
+     [ Bob_S5( ps_w_new ) ]
+  */
+
+rule (modulo E) FS_Send_epoch_probe:
+   [ !EpochNodeState( ps_w ), Fr( ~fs_msg ) ]
+  --[ FS_Send( ~fs_msg, ps_w ) ]->
+   [ Out( aenc(~fs_msg, node_pk(ps_w)) ) ]
+
+  /*
+  rule (modulo AC) FS_Send_epoch_probe:
+     [ !EpochNodeState( ps_w ), Fr( ~fs_msg ) ]
+    --[ FS_Send( ~fs_msg, ps_w ) ]->
+     [ Out( aenc(~fs_msg, pk(node_sk(ps_w))) ) ]
+  */
+
+rule (modulo E) Reveal_NodeState[no_derivcheck]:
+   [ !EpochNodeState( ps_w ) ]
+  --[ RevealNode( ps_w ) ]->
+   [ Out( <ps_w, node_sk(ps_w)> ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) S6_Charlie_sends:
+   [ Charlie_S5( ps_w ), Fr( ~msg ) ]
+  --[ S6_Send( 'Charlie', ~msg ), Secret_MSG( ~msg ) ]->
+   [ Out( aenc(~msg, node_pk(ps_w)) ), !SentMsg( ~msg ) ]
+
+  /*
+  rule (modulo AC) S6_Charlie_sends:
+     [ Charlie_S5( ps_w ), Fr( ~msg ) ]
+    --[ S6_Send( 'Charlie', ~msg ), Secret_MSG( ~msg ) ]->
+     [ Out( aenc(~msg, pk(node_sk(ps_w))) ), !SentMsg( ~msg ) ]
+  */
+
+rule (modulo E) S6_Alice_recv[no_derivcheck]:
+   [ Alice_S5( g, ps_w ), In( aenc(m, node_pk(ps_w)) ) ]
+  --[ S6_Recv( 'Alice', m ) ]->
+   [ ]
+
+  /*
+  rule (modulo AC) S6_Alice_recv[no_derivcheck]:
+     [ Alice_S5( g, ps_w ), In( aenc(m, pk(node_sk(ps_w))) ) ]
+    --[ S6_Recv( 'Alice', m ) ]->
+     [ ]
+  */
+
+rule (modulo E) S6_Bob_recv[no_derivcheck]:
+   [ Bob_S5( ps_w ), In( aenc(m, node_pk(ps_w)) ) ]
+  --[ S6_Recv( 'Bob', m ) ]->
+   [ ]
+
+  /*
+  rule (modulo AC) S6_Bob_recv[no_derivcheck]:
+     [ Bob_S5( ps_w ), In( aenc(m, pk(node_sk(ps_w))) ) ]
+    --[ S6_Recv( 'Bob', m ) ]->
+     [ ]
+  */
+
+restriction eq_check:
+  "∀ x y #i. (Eq( x, y ) @ #i) ⇒ (x = y)"
+  // safety formula
+
+  /*
+  expanded formula:
+  "∀ x y #i. (Eq( x, y ) @ #i) ⇒ (x = y)"
+  */
+
+lemma exec_normal_flow_alice_recv:
+  exists-trace
+  "∃ m #s #ra.
+    ((S6_Send( 'Charlie', m ) @ #s) ∧ (S6_Recv( 'Alice', m ) @ #ra)) ∧
+    (#s < #ra)"
+/*
+guarded formula characterizing all satisfying traces:
+"∃ m #s #ra.
+  (S6_Send( 'Charlie', m ) @ #s) ∧ (S6_Recv( 'Alice', m ) @ #ra)
+ ∧
+  #s < #ra"
+*/
+by sorry
+
+lemma exec_normal_flow_bob_recv:
+  exists-trace
+  "∃ m #s #rb.
+    ((S6_Send( 'Charlie', m ) @ #s) ∧ (S6_Recv( 'Bob', m ) @ #rb)) ∧
+    (#s < #rb)"
+/*
+guarded formula characterizing all satisfying traces:
+"∃ m #s #rb.
+  (S6_Send( 'Charlie', m ) @ #s) ∧ (S6_Recv( 'Bob', m ) @ #rb) ∧ #s < #rb"
+*/
+by sorry
+
+lemma exec_fs_current_compromise:
+  exists-trace
+  "∃ m ps_old ps_new #s #u #r.
+    ((((FS_Send( m, ps_old ) @ #s) ∧ (FS_Update( ps_old, ps_new ) @ #u)) ∧
+      (RevealNode( ps_new ) @ #r)) ∧
+     (#s < #u)) ∧
+    (#u < #r)"
+/*
+guarded formula characterizing all satisfying traces:
+"∃ m ps_old ps_new #s #u #r.
+  (FS_Send( m, ps_old ) @ #s) ∧
+  (FS_Update( ps_old, ps_new ) @ #u) ∧
+  (RevealNode( ps_new ) @ #r)
+ ∧
+  (#s < #u) ∧ (#u < #r)"
+*/
+by sorry
+
+lemma L1_baseline_secrecy:
+  all-traces
+  "∀ m #s.
+    ((Secret_MSG( m ) @ #s) ∧ (¬(∃ ps #r. RevealNode( ps ) @ #r))) ⇒
+    (¬(∃ #j. K( m ) @ #j))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ m #s.
+  (Secret_MSG( m ) @ #s)
+ ∧
+  (∀ ps #r. (RevealNode( ps ) @ #r) ⇒ ⊥) ∧ (∃ #j. (K( m ) @ #j))"
+*/
+by sorry
+
+lemma L2_forward_secrecy:
+  all-traces
+  "∀ m ps_old ps_new #s #u #r.
+    ((((((FS_Send( m, ps_old ) @ #s) ∧ (FS_Update( ps_old, ps_new ) @ #u)) ∧
+        (RevealNode( ps_new ) @ #r)) ∧
+       (#s < #u)) ∧
+      (#u < #r)) ∧
+     (¬(∃ #ro. RevealNode( ps_old ) @ #ro))) ⇒
+    (¬(∃ #j. K( m ) @ #j))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ m ps_old ps_new #s #u #r.
+  (FS_Send( m, ps_old ) @ #s) ∧
+  (FS_Update( ps_old, ps_new ) @ #u) ∧
+  (RevealNode( ps_new ) @ #r)
+ ∧
+  (#s < #u) ∧
+  (#u < #r) ∧
+  (∀ #ro. (RevealNode( ps_old ) @ #ro) ⇒ ⊥) ∧
+  (∃ #j. (K( m ) @ #j))"
+*/
+by sorry
+
+lemma L2_same_epoch_reveal_control:
+  all-traces
+  "∀ m ps #s #r.
+    (((FS_Send( m, ps ) @ #s) ∧ (RevealNode( ps ) @ #r)) ∧ (#s < #r)) ⇒
+    (¬(∃ #j. K( m ) @ #j))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ m ps #s #r.
+  (FS_Send( m, ps ) @ #s) ∧ (RevealNode( ps ) @ #r)
+ ∧
+  (#s < #r) ∧ (∃ #j. (K( m ) @ #j))"
+*/
+by sorry
+
+lemma exec_pcs_healing:
+  exists-trace
+  "∃ m ps_old ps_new #r #u #s.
+    ((((RevealNode( ps_old ) @ #r) ∧ (FS_Update( ps_old, ps_new ) @ #u)) ∧
+      (FS_Send( m, ps_new ) @ #s)) ∧
+     (#r < #u)) ∧
+    (#u < #s)"
+/*
+guarded formula characterizing all satisfying traces:
+"∃ m ps_old ps_new #r #u #s.
+  (RevealNode( ps_old ) @ #r) ∧
+  (FS_Update( ps_old, ps_new ) @ #u) ∧
+  (FS_Send( m, ps_new ) @ #s)
+ ∧
+  (#r < #u) ∧ (#u < #s)"
+*/
+by sorry
+
+lemma L3_post_compromise_security:
+  all-traces
+  "∀ m ps_old ps_new #r #u #s.
+    ((((((RevealNode( ps_old ) @ #r) ∧ (FS_Update( ps_old, ps_new ) @ #u)) ∧
+        (FS_Send( m, ps_new ) @ #s)) ∧
+       (#r < #u)) ∧
+      (#u < #s)) ∧
+     (¬(∃ #rn. RevealNode( ps_new ) @ #rn))) ⇒
+    (¬(∃ #j. K( m ) @ #j))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ m ps_old ps_new #r #u #s.
+  (RevealNode( ps_old ) @ #r) ∧
+  (FS_Update( ps_old, ps_new ) @ #u) ∧
+  (FS_Send( m, ps_new ) @ #s)
+ ∧
+  (#r < #u) ∧
+  (#u < #s) ∧
+  (∀ #rn. (RevealNode( ps_new ) @ #rn) ⇒ ⊥) ∧
+  (∃ #j. (K( m ) @ #j))"
+*/
+simplify
+solve( !EpochNodeState( ps_old ) ▶₀ #r )
+  case S4_Alice_invites_Charlie
+  solve( Charlie_S4( <'Charlie', h(ps_x_new), joiner> ) ▶₀ #u )
+    case S4_Charlie_joins
+    solve( !EpochNodeState( h(~ps_c) ) ▶₀ #s )
+      case S4_Alice_invites_Charlie
+      solve( !KU( ~fs_msg ) @ #vk )
+        case FS_Send_epoch_probe_case_1
+        by contradiction /* from formulas */
+      next
+        case FS_Send_epoch_probe_case_2
+        by contradiction /* from formulas */
+      qed
+    next
+      case S5_Charlie_update
+      solve( !KU( ~fs_msg ) @ #vk )
+        case FS_Send_epoch_probe_case_1
+        by contradiction /* from formulas */
+      next
+        case FS_Send_epoch_probe_case_2
+        by contradiction /* from formulas */
+      qed
+    qed
+  qed
+next
+  case S5_Charlie_update
+  solve( Charlie_S4( <'Charlie', h(~ps_c), joiner> ) ▶₀ #u )
+    case S4_Charlie_joins
+    solve( !EpochNodeState( h(~ps_c.1) ) ▶₀ #s )
+      case S4_Alice_invites_Charlie
+      solve( !KU( ~fs_msg ) @ #vk )
+        case FS_Send_epoch_probe_case_1
+        by contradiction /* from formulas */
+      next
+        case FS_Send_epoch_probe_case_2
+        by contradiction /* from formulas */
+      qed
+    next
+      case S5_Charlie_update
+      solve( !KU( ~fs_msg ) @ #vk )
+        case FS_Send_epoch_probe_case_1
+        by contradiction /* from formulas */
+      next
+        case FS_Send_epoch_probe_case_2
+        by contradiction /* from formulas */
+      qed
+    qed
+  qed
+qed
+
+lemma L3_healed_epoch_reveal_control:
+  all-traces
+  "∀ m ps_old ps_new #r #u #rn #s.
+    (((((((RevealNode( ps_old ) @ #r) ∧ (FS_Update( ps_old, ps_new ) @ #u)) ∧
+         (RevealNode( ps_new ) @ #rn)) ∧
+        (FS_Send( m, ps_new ) @ #s)) ∧
+       (#r < #u)) ∧
+      (#u < #rn)) ∧
+     (#rn < #s)) ⇒
+    (¬(∃ #j. K( m ) @ #j))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ m ps_old ps_new #r #u #rn #s.
+  (RevealNode( ps_old ) @ #r) ∧
+  (FS_Update( ps_old, ps_new ) @ #u) ∧
+  (RevealNode( ps_new ) @ #rn) ∧
+  (FS_Send( m, ps_new ) @ #s)
+ ∧
+  (#r < #u) ∧ (#u < #rn) ∧ (#rn < #s) ∧ (∃ #j. (K( m ) @ #j))"
+*/
+by sorry
+
+/* All wellformedness checks were successful. */
+
+/*
+Generated from:
+Tamarin version 1.12.0
+Maude version 3.5.1
+Git revision: 82780bbaf3328a45f624ddb41e51bf75425f851c, branch: HEAD
+Compiled at: 2026-08-21 06:15:16.651364526 UTC
+*/
+
+end
+
+==============================================================================
+summary of summaries:
+
+analyzed: theories/stages/stage3_private_pcs.spthy
+
+  processing time: 1.35s
+  
+  exec_normal_flow_alice_recv (exists-trace): analysis incomplete (1 steps)
+  exec_normal_flow_bob_recv (exists-trace): analysis incomplete (1 steps)
+  exec_fs_current_compromise (exists-trace): analysis incomplete (1 steps)
+  L1_baseline_secrecy (all-traces): analysis incomplete (1 steps)
+  L2_forward_secrecy (all-traces): analysis incomplete (1 steps)
+  L2_same_epoch_reveal_control (all-traces): analysis incomplete (1 steps)
+  exec_pcs_healing (exists-trace): analysis incomplete (1 steps)
+  L3_post_compromise_security (all-traces): verified (18 steps)
+  L3_healed_epoch_reveal_control (all-traces): analysis incomplete (1 steps)
+
+==============================================================================

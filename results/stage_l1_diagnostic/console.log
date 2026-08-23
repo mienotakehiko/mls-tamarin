@@ -1,0 +1,39 @@
+============================================================
+Corrected-v2 L1 stage diagnostic
+============================================================
+REPO_ROOT=/home/mieno/mls-tamarin-stage-v2/mls-tamarin-repo-corrected-v2
+TAMARIN=/home/mieno/tamarin-clean-1.12.0/bin/tamarin-prover-1.12.0-clean
+
+===== artifact marker =====
+artifact_revision=corrected-v2-historical-stages
+purpose=Replay historical intermediate Tamarin theories used in the refinement experiments.
+stage_policy=Stages 1-6 preserve historical intermediate models; Stage 7 is bit-identical to final.
+final_model_sha256=054de69086fdbf5cd1f4158b18edde5a0434e61436080d3ccf3b84cf7e80be03
+
+===== checking all staged theory hashes =====
+theories/stages/stage1_private_kdf.spthy: OK
+theories/stages/stage1c_public_kdf_control.spthy: OK
+theories/stages/stage2_private_fs.spthy: OK
+theories/stages/stage3_private_pcs.spthy: OK
+theories/stages/stage4_p1_public_unauth_kp.spthy: OK
+theories/stages/stage4_p2_public_valid_kp.spthy: OK
+theories/stages/stage5_public_fs.spthy: OK
+theories/stages/stage6_v1_simplified_pcs.spthy: OK
+theories/stages/stage7_v2_copath_pcs.spthy: OK
+
+Semantic-shape guards: PASS
+
+stage      verdict     steps    wall(s)    RSS(MiB)   warnings
+stage1     verified    3        0.64       87.1       clean
+stage1c    falsified   10       47.04      2615.2     clean
+stage4_p1  falsified   16       1.52       106.1      clean
+stage4_p2  verified    244      5.97       175.1      clean
+
+Expected corrected-v2 pattern:
+  stage1     = verified
+  stage1c    = falsified
+  stage4_p1  = falsified
+  stage4_p2  = verified
+
+RESULT_DIR=/home/mieno/mls-tamarin-stage-v2/mls-tamarin-repo-corrected-v2/results/stage_l1_diagnostic
+CSV=/home/mieno/mls-tamarin-stage-v2/mls-tamarin-repo-corrected-v2/results/stage_l1_diagnostic/l1_diagnostic.csv

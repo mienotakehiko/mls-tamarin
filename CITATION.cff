@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: "If this artifact contributes to derivative work, please cite the accompanying paper."
+title: "mls-tamarin: Companion artifact for Staged Symbolic Analysis of the MLS Ratchet Tree in Tamarin"
+authors:
+  - family-names: Mieno
+    given-names: Takehiko
+version: "1.0.0"
+date-released: "2026-08-22"
+license: MIT
+repository-code: "https://github.com/mienotakehiko/mls-tamarin"
+type: software
+keywords:
+  - MLS
+  - Messaging Layer Security
+  - RFC 9420
+  - Tamarin Prover
+  - symbolic verification
+  - ratchet tree
+  - forward secrecy
+  - post-compromise security
+preferred-citation:
+  authors:
+    - family-names: Mieno
+      given-names: Takehiko
+  year: 2026

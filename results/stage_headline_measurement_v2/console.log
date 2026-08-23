@@ -1,0 +1,63 @@
+============================================================
+Corrected-v2 nine-stage headline measurement
+============================================================
+REPO_ROOT=/home/mieno/mls-tamarin-stage-v2/mls-tamarin-repo-corrected-v2
+TAMARIN=/home/mieno/tamarin-clean-1.12.0/bin/tamarin-prover-1.12.0-clean
+OUT=/home/mieno/mls-tamarin-stage-v2/mls-tamarin-repo-corrected-v2/results/stage_headline_measurement_v2
+
+===== artifact marker =====
+artifact_revision=corrected-v2-historical-stages
+purpose=Replay historical intermediate Tamarin theories used in the refinement experiments.
+stage_policy=Stages 1-6 preserve historical intermediate models; Stage 7 is bit-identical to final.
+final_model_sha256=054de69086fdbf5cd1f4158b18edde5a0434e61436080d3ccf3b84cf7e80be03
+
+===== staged theory SHA-256 check =====
+theories/stages/stage1_private_kdf.spthy: OK
+theories/stages/stage1c_public_kdf_control.spthy: OK
+theories/stages/stage2_private_fs.spthy: OK
+theories/stages/stage3_private_pcs.spthy: OK
+theories/stages/stage4_p1_public_unauth_kp.spthy: OK
+theories/stages/stage4_p2_public_valid_kp.spthy: OK
+theories/stages/stage5_public_fs.spthy: OK
+theories/stages/stage6_v1_simplified_pcs.spthy: OK
+theories/stages/stage7_v2_copath_pcs.spthy: OK
+
+Semantic-shape guards: PASS
+
+===== clean Tamarin =====
+maude tool: 'maude'
+ checking version: tamarin-prover 1.12.0, (C) David Basin, Cas Cremers, Jannik Dreier, Simon Meier, Ralf Sasse, Benedikt Schmidt, 2010-2023
+
+This program comes with ABSOLUTELY NO WARRANTY. It is free software, and you
+are welcome to redistribute it according to its LICENSE, see
+'https://github.com/tamarin-prover/tamarin-prover/blob/master/LICENSE'.
+
+3.5.1. OK.
+ checking installation: OK.
+Generated from:
+Tamarin version 1.12.0
+Maude version 3.5.1
+Git revision: 82780bbaf3328a45f624ddb41e51bf75425f851c, branch: HEAD
+Compiled at: 2026-08-21 06:15:16.651364526 UTC
+
+Tamarin SHA-256: 39cfd71ce7cd9028badbcf22729c807a78040ebc9665207d52f140994bf596a0
+Final model SHA-256: 054de69086fdbf5cd1f4158b18edde5a0434e61436080d3ccf3b84cf7e80be03
+
+stage      lemma                          expected   observed   status     steps    wall(s)   RSS(MiB)   WF       warnings
+stage1     L1_baseline_secrecy            verified   verified   OK         3        0.61      86.8       successful clean
+stage1c    L1_baseline_secrecy            falsified  falsified  OK         10       50.65     2614.1     successful clean
+stage2     L2_forward_secrecy             verified   verified   OK         18       1.17      101.5      successful clean
+stage3     L3_post_compromise_security    verified   verified   OK         18       -2.41     99.2       successful clean
+stage4_p1  L1_baseline_secrecy            falsified  falsified  OK         16       1.40      107.6      successful clean
+stage4_p2  L1_baseline_secrecy            verified   verified   OK         244      5.31      184.3      successful clean
+stage5     L2_forward_secrecy             verified   verified   OK         1686     52.94     1046.0     successful clean
+stage6_v1  L3_post_compromise_security    falsified  falsified  OK         17       11.25     462.1      successful clean
+stage7_v2  L3_post_compromise_security    verified   verified   OK         4336     194.58    4715.4     successful clean
+
+============================================================
+Nine-stage measurement completed
+============================================================
+Results: /home/mieno/mls-tamarin-stage-v2/mls-tamarin-repo-corrected-v2/results/stage_headline_measurement_v2/stage_headline_results.csv
+Mismatches/nonclean runs: 0
+
+ALL NINE STAGES MATCH THE EXPECTED HEADLINE VERDICTS.

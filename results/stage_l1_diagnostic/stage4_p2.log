@@ -1,0 +1,1170 @@
+maude tool: 'maude'
+ checking version: 3.5.1. OK.
+ checking installation: OK.
+[Theory MLS_RatchetTree_Stage4_P2_PublicValidKP] Theory loaded
+[Theory MLS_RatchetTree_Stage4_P2_PublicValidKP] Theory translated
+[Theory MLS_RatchetTree_Stage4_P2_PublicValidKP] Derivation checks started
+[Theory MLS_RatchetTree_Stage4_P2_PublicValidKP] Derivation checks ended
+[Theory MLS_RatchetTree_Stage4_P2_PublicValidKP] Theory closed
+[Saturating Sources] Step 1 (Max 5)
+[Saturating Sources] Step 2 (Max 5)
+[Saturating Sources] Done
+theory MLS_RatchetTree_Stage4_P2_PublicValidKP
+
+begin
+
+// Function signature and definition of the equational theory E
+
+functions: adec/2, aenc/2, fst/1, h/1, node_sk/1, pair/2, pk/1, sign/2,
+           snd/1, true/0, verify/3
+equations:
+    adec(aenc(x.1, pk(x.2)), x.2) = x.1,
+    fst(<x.1, x.2>) = x.1,
+    snd(<x.1, x.2>) = x.2,
+    verify(sign(x.1, x.2), x.1, pk(x.2)) = true
+
+rule (modulo E) AS_Setup:
+   [ Fr( ~sk_as ) ]
+  --[ AS_Init( ~sk_as ) ]->
+   [ !AS( ~sk_as ), Out( pk(~sk_as) ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Alice_LTK:
+   [ Fr( ~sk_alice ) ]
+  --[ AliceKey( ~sk_alice ) ]->
+   [ !AliceLTK( ~sk_alice ), !AlicePK( pk(~sk_alice) ), Out( pk(~sk_alice) )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Bob_generates_kp:
+   [ Fr( ~sk_b ) ]
+  --[ BobKPgen( ~sk_b ) ]->
+   [
+   !Bob_KP( ~sk_b, pk(~sk_b) ), !ValidKP( 'Bob', pk(~sk_b) ),
+   Out( <'kpg_b', pk(~sk_b)> )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Charlie_generates_kp:
+   [ Fr( ~sk_c ) ]
+  --[ CharlieKPgen( ~sk_c ) ]->
+   [
+   !Charlie_KP( ~sk_c, pk(~sk_c) ), !ValidKP( 'Charlie', pk(~sk_c) ),
+   Out( <'kpg_c', pk(~sk_c)> )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) S1_Alice_creates_group:
+   [ !AliceLTK( sk_alice ), Fr( ~g ), Fr( ~ps_a ), Fr( ~epoch0 ) ]
+  --[ S1_Create( ~g, ~ps_a ) ]->
+   [ Alice_S1( ~g, ~ps_a, h(~ps_a), ~epoch0, sk_alice ), !Group( ~g ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) S2_Alice_invites_Bob:
+   [
+   Alice_S1( g, ps_a, h(ps_a), epoch0, sk_alice ), !ValidKP( 'Bob', pk_b ),
+   In( <'kpg_b', pk_b> )
+   ]
+  --[ S2_Invite( g, 'Bob' ), Welcome( g, h(ps_a) ) ]->
+   [
+   Alice_S2( g, ps_a, h(ps_a), epoch0, sk_alice ),
+   Out( <aenc(<'Bob', h(ps_a), h(<epoch0, h(h(ps_a))>)>, pk_b), 
+         sign(<'Bob', h(ps_a), h(<epoch0, h(h(ps_a))>)>, sk_alice)>
+   )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) S2_Bob_joins:
+   [ !Bob_KP( sk_b, pk_b ), In( <cipher, sig> ), !AlicePK( pk_alice ) ]
+  --[
+  S2_Join( 'Bob', adec(cipher, sk_b) ),
+  Eq( verify(sig, adec(cipher, sk_b), pk_alice), true )
+  ]->
+   [ Bob_S2( adec(cipher, sk_b) ) ]
+
+  /*
+  rule (modulo AC) S2_Bob_joins:
+     [ !Bob_KP( sk_b, pk_b ), In( <cipher, sig> ), !AlicePK( pk_alice ) ]
+    --[ S2_Join( 'Bob', z ), Eq( z.1, true ) ]->
+     [ Bob_S2( z ) ]
+    variants (modulo AC)
+    1. cipher
+             = cipher.10
+       pk_alice
+             = pk_alice.11
+       sig   = sig.13
+       sk_b  = sk_b.14
+       z     = adec(cipher.10, sk_b.14)
+       z.1   = verify(sig.13, adec(cipher.10, sk_b.14), pk_alice.11)
+    
+    2. cipher
+             = cipher.13
+       pk_alice
+             = pk(x.22)
+       sig   = sign(adec(cipher.13, sk_b.17), x.22)
+       sk_b  = sk_b.17
+       z     = adec(cipher.13, sk_b.17)
+       z.1   = true
+    
+    3. cipher
+             = aenc(z.13, pk(sk_b.12))
+       pk_alice
+             = pk(x.18)
+       sig   = sign(z.13, x.18)
+       sk_b  = sk_b.12
+       z     = z.13
+       z.1   = true
+    
+    4. cipher
+             = aenc(z.16, pk(sk_b.15))
+       pk_alice
+             = pk_alice.12
+       sig   = sig.14
+       sk_b  = sk_b.15
+       z     = z.16
+       z.1   = verify(sig.14, z.16, pk_alice.12)
+  */
+
+rule (modulo E) S3_Bob_update:
+   [ Bob_S2( <'Bob', ps_x_old, joiner> ), Fr( ~ps_b ) ]
+  --[ S3_Update( 'Bob', ~ps_b, h(~ps_b) ) ]->
+   [
+   Bob_S3( ~ps_b, h(~ps_b) ),
+   Out( <'commit_bob', aenc(h(~ps_b), pk(node_sk(ps_x_old)))> )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) S3_Alice_receives_commit:
+   [
+   Alice_S2( g, ps_a, ps_x_old, epoch0, sk_alice ),
+   In( <'commit_bob', cipher> )
+   ]
+  --[ S3_Alice_sync( g, adec(cipher, node_sk(ps_x_old)) ) ]->
+   [ Alice_S3( g, adec(cipher, node_sk(ps_x_old)), sk_alice ) ]
+
+  /*
+  rule (modulo AC) S3_Alice_receives_commit:
+     [
+     Alice_S2( g, ps_a, ps_x_old, epoch0, sk_alice ),
+     In( <'commit_bob', cipher> )
+     ]
+    --[ S3_Alice_sync( g, z ) ]->
+     [ Alice_S3( g, z, sk_alice ) ]
+    variants (modulo AC)
+    1. cipher
+             = cipher.10
+       ps_x_old
+             = ps_x_old.14
+       z     = adec(cipher.10, node_sk(ps_x_old.14))
+    
+    2. cipher
+             = aenc(z.14, pk(node_sk(ps_x_old.11)))
+       ps_x_old
+             = ps_x_old.11
+       z     = z.14
+  */
+
+rule (modulo E) S4_Alice_invites_Charlie:
+   [
+   Alice_S3( g, ps_x_new, sk_alice ), !ValidKP( 'Charlie', pk_c ),
+   In( <'kpg_c', pk_c> )
+   ]
+  --[ S4_Invite( g, 'Charlie' ), Welcome_W( g, h(ps_x_new) ) ]->
+   [
+   Alice_S4( g, h(ps_x_new) ),
+   Out( <aenc(<'Charlie', h(ps_x_new), h(<'ep3', h(ps_x_new)>)>, pk_c), 
+         sign(<'Charlie', h(ps_x_new), h(<'ep3', h(ps_x_new)>)>, sk_alice)>
+   )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) S4_Charlie_joins:
+   [ !Charlie_KP( sk_c, pk_c ), In( <cipher, sig> ), !AlicePK( pk_alice ) ]
+  --[
+  S4_Join( 'Charlie', adec(cipher, sk_c) ),
+  Eq( verify(sig, adec(cipher, sk_c), pk_alice), true )
+  ]->
+   [ Charlie_S4( adec(cipher, sk_c) ) ]
+
+  /*
+  rule (modulo AC) S4_Charlie_joins:
+     [ !Charlie_KP( sk_c, pk_c ), In( <cipher, sig> ), !AlicePK( pk_alice ) ]
+    --[ S4_Join( 'Charlie', z ), Eq( z.1, true ) ]->
+     [ Charlie_S4( z ) ]
+    variants (modulo AC)
+    1. cipher
+             = cipher.10
+       pk_alice
+             = pk_alice.11
+       sig   = sig.13
+       sk_c  = sk_c.14
+       z     = adec(cipher.10, sk_c.14)
+       z.1   = verify(sig.13, adec(cipher.10, sk_c.14), pk_alice.11)
+    
+    2. cipher
+             = cipher.13
+       pk_alice
+             = pk(x.22)
+       sig   = sign(adec(cipher.13, sk_c.17), x.22)
+       sk_c  = sk_c.17
+       z     = adec(cipher.13, sk_c.17)
+       z.1   = true
+    
+    3. cipher
+             = aenc(z.13, pk(sk_c.12))
+       pk_alice
+             = pk(x.18)
+       sig   = sign(z.13, x.18)
+       sk_c  = sk_c.12
+       z     = z.13
+       z.1   = true
+    
+    4. cipher
+             = aenc(z.16, pk(sk_c.15))
+       pk_alice
+             = pk_alice.12
+       sig   = sig.14
+       sk_c  = sk_c.15
+       z     = z.16
+       z.1   = verify(sig.14, z.16, pk_alice.12)
+  */
+
+rule (modulo E) S4_Bob_syncs:
+   [ Bob_S3( ps_b, ps_x_new ) ]
+  --[ S4_Bob_syncW( h(ps_x_new) ) ]->
+   [ Bob_S4( h(ps_x_new) ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) S5_Charlie_update:
+   [ Charlie_S4( <'Charlie', ps_w_old, joiner> ), Fr( ~ps_c ) ]
+  --[ S5_Update( 'Charlie', ~ps_c, h(~ps_c) ) ]->
+   [
+   Charlie_S5( h(~ps_c) ),
+   Out( <'commit_charlie', aenc(h(~ps_c), pk(node_sk(ps_w_old)))> )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) S5_Alice_sync:
+   [ Alice_S4( g, ps_w_old ), In( <'commit_charlie', cipher> ) ]
+  --[ S5_Alice_syncW( g, adec(cipher, node_sk(ps_w_old)) ) ]->
+   [ Alice_S5( g, adec(cipher, node_sk(ps_w_old)) ) ]
+
+  /*
+  rule (modulo AC) S5_Alice_sync:
+     [ Alice_S4( g, ps_w_old ), In( <'commit_charlie', cipher> ) ]
+    --[ S5_Alice_syncW( g, z ) ]->
+     [ Alice_S5( g, z ) ]
+    variants (modulo AC)
+    1. cipher
+             = cipher.7
+       ps_w_old
+             = ps_w_old.9
+       z     = adec(cipher.7, node_sk(ps_w_old.9))
+    
+    2. cipher
+             = aenc(z.10, pk(node_sk(ps_w_old.8)))
+       ps_w_old
+             = ps_w_old.8
+       z     = z.10
+  */
+
+rule (modulo E) S5_Bob_sync:
+   [ Bob_S4( ps_w_old ), In( <'commit_charlie', cipher> ) ]
+  --[ S5_Bob_syncW( adec(cipher, node_sk(ps_w_old)) ) ]->
+   [ Bob_S5( adec(cipher, node_sk(ps_w_old)) ) ]
+
+  /*
+  rule (modulo AC) S5_Bob_sync:
+     [ Bob_S4( ps_w_old ), In( <'commit_charlie', cipher> ) ]
+    --[ S5_Bob_syncW( z ) ]->
+     [ Bob_S5( z ) ]
+    variants (modulo AC)
+    1. cipher
+             = cipher.6
+       ps_w_old
+             = ps_w_old.7
+       z     = adec(cipher.6, node_sk(ps_w_old.7))
+    
+    2. cipher
+             = aenc(z.9, pk(node_sk(ps_w_old.7)))
+       ps_w_old
+             = ps_w_old.7
+       z     = z.9
+  */
+
+rule (modulo E) S6_Charlie_sends:
+   [ Charlie_S5( ps_w ), Fr( ~msg ) ]
+  --[ S6_Send( 'Charlie', ~msg ), Secret_MSG( ~msg ) ]->
+   [ Out( aenc(~msg, pk(node_sk(ps_w))) ), !SentMsg( ~msg ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) S6_Alice_recv:
+   [ Alice_S5( g, ps_w ), In( cipher ) ]
+  --[ S6_Recv( 'Alice', adec(cipher, node_sk(ps_w)) ) ]->
+   [ ]
+
+  /*
+  rule (modulo AC) S6_Alice_recv:
+     [ Alice_S5( g, ps_w ), In( cipher ) ] --[ S6_Recv( 'Alice', z ) ]-> [ ]
+    variants (modulo AC)
+    1. cipher
+             = cipher.7
+       ps_w  = ps_w.9
+       z     = adec(cipher.7, node_sk(ps_w.9))
+    
+    2. cipher
+             = aenc(z.10, pk(node_sk(ps_w.8)))
+       ps_w  = ps_w.8
+       z     = z.10
+  */
+
+rule (modulo E) S6_Bob_recv:
+   [ Bob_S5( ps_w ), In( cipher ) ]
+  --[ S6_Recv( 'Bob', adec(cipher, node_sk(ps_w)) ) ]->
+   [ ]
+
+  /*
+  rule (modulo AC) S6_Bob_recv:
+     [ Bob_S5( ps_w ), In( cipher ) ] --[ S6_Recv( 'Bob', z ) ]-> [ ]
+    variants (modulo AC)
+    1. cipher
+             = cipher.6
+       ps_w  = ps_w.7
+       z     = adec(cipher.6, node_sk(ps_w.7))
+    
+    2. cipher
+             = aenc(z.9, pk(node_sk(ps_w.7)))
+       ps_w  = ps_w.7
+       z     = z.9
+  */
+
+restriction eq_check:
+  "∀ x y #i. (Eq( x, y ) @ #i) ⇒ (x = y)"
+  // safety formula
+
+  /*
+  expanded formula:
+  "∀ x y #i. (Eq( x, y ) @ #i) ⇒ (x = y)"
+  */
+
+lemma exec_normal_flow_alice_recv:
+  exists-trace
+  "∃ m #s #ra.
+    ((S6_Send( 'Charlie', m ) @ #s) ∧ (S6_Recv( 'Alice', m ) @ #ra)) ∧
+    (#s < #ra)"
+/*
+guarded formula characterizing all satisfying traces:
+"∃ m #s #ra.
+  (S6_Send( 'Charlie', m ) @ #s) ∧ (S6_Recv( 'Alice', m ) @ #ra)
+ ∧
+  #s < #ra"
+*/
+by sorry
+
+lemma exec_normal_flow_bob_recv:
+  exists-trace
+  "∃ m #s #rb.
+    ((S6_Send( 'Charlie', m ) @ #s) ∧ (S6_Recv( 'Bob', m ) @ #rb)) ∧
+    (#s < #rb)"
+/*
+guarded formula characterizing all satisfying traces:
+"∃ m #s #rb.
+  (S6_Send( 'Charlie', m ) @ #s) ∧ (S6_Recv( 'Bob', m ) @ #rb) ∧ #s < #rb"
+*/
+by sorry
+
+lemma L1_baseline_secrecy:
+  all-traces "∀ m #s. (Secret_MSG( m ) @ #s) ⇒ (¬(∃ #j. K( m ) @ #j))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ m #s. (Secret_MSG( m ) @ #s) ∧ ∃ #j. (K( m ) @ #j)"
+*/
+simplify
+solve( Charlie_S5( ps_w ) ▶₀ #s )
+  case S5_Charlie_update
+  solve( !KU( ~msg ) @ #vk )
+    case S6_Charlie_sends
+    solve( !KU( sign(<'Charlie', ps_w_old, joiner>, ~sk_alice) ) @ #vk.4 )
+      case S4_Alice_invites_Charlie
+      solve( splitEqs(1) )
+        case split_case_1
+        solve( !KU( aenc(<'Charlie', h(adec(cipher, node_sk(h(~ps_a)))), 
+                          h(<'ep3', h(adec(cipher, node_sk(h(~ps_a))))>)>,
+                         pk(~sk_c.1))
+               ) @ #vk.4 )
+          case S4_Alice_invites_Charlie
+          solve( splitEqs(3) )
+            case split_case_1
+            solve( !KU( h(~ps_c) ) @ #vk.5 )
+              case S4_Alice_invites_Charlie
+              by solve( !KU( ~sk_c.1 ) @ #vk.19 )
+            next
+              case S5_Charlie_update
+              solve( !KU( node_sk(h(adec(cipher, node_sk(h(~ps_a))))) ) @ #vk.15 )
+                case c_node_sk
+                solve( !KU( h(adec(cipher, node_sk(h(~ps_a)))) ) @ #vk.16 )
+                  case S4_Alice_invites_Charlie
+                  by solve( !KU( ~sk_c.1 ) @ #vk.21 )
+                next
+                  case c_h
+                  solve( !KU( adec(cipher, node_sk(h(~ps_a))) ) @ #vk.17 )
+                    case c_adec
+                    solve( !KU( node_sk(h(~ps_a)) ) @ #vk.18 )
+                      case c_node_sk
+                      solve( !KU( h(~ps_a) ) @ #vk.19 )
+                        case S2_Alice_invites_Bob
+                        by solve( !KU( ~sk_b ) @ #vk.20 )
+                      next
+                        case S4_Alice_invites_Charlie
+                        by solve( !KU( ~sk_c.1 ) @ #vk.24 )
+                      next
+                        case c_h
+                        by solve( !KU( ~ps_a ) @ #vk.20 )
+                      qed
+                    qed
+                  qed
+                qed
+              qed
+            next
+              case c_h
+              by solve( !KU( ~ps_c ) @ #vk.15 )
+            qed
+          next
+            case split_case_2
+            solve( !KU( h(~ps_c) ) @ #vk.5 )
+              case S4_Alice_invites_Charlie
+              by solve( !KU( ~sk_c.2 ) @ #vk.25 )
+            next
+              case S5_Charlie_update
+              solve( !KU( node_sk(h(adec(cipher, node_sk(h(~ps_a))))) ) @ #vk.21 )
+                case c_node_sk
+                solve( !KU( aenc(adec(cipher, node_sk(h(~ps_a))),
+                                 pk(node_sk(h(~ps_a.1))))
+                       ) @ #vk.20 )
+                  case c_aenc
+                  solve( !KU( adec(cipher, node_sk(h(~ps_a))) ) @ #vk.23 )
+                    case c_adec
+                    solve( !KU( node_sk(h(~ps_a)) ) @ #vk.25 )
+                      case c_node_sk
+                      solve( !KU( h(adec(cipher, node_sk(h(~ps_a)))) ) @ #vk.24 )
+                        case S4_Alice_invites_Charlie
+                        by solve( !KU( ~sk_c.2 ) @ #vk.31 )
+                      next
+                        case c_h
+                        solve( !KU( pk(node_sk(h(~ps_a.1))) ) @ #vk.25 )
+                          case c_pk
+                          solve( !KU( node_sk(h(~ps_a.1)) ) @ #vk.27 )
+                            case c_node_sk
+                            solve( !KU( h(~ps_a) ) @ #vk.27 )
+                              case S2_Alice_invites_Bob
+                              by solve( !KU( ~sk_b ) @ #vk.29 )
+                            next
+                              case S4_Alice_invites_Charlie
+                              by solve( !KU( ~sk_c.2 ) @ #vk.33 )
+                            next
+                              case c_h
+                              by solve( !KU( ~ps_a ) @ #vk.29 )
+                            qed
+                          qed
+                        qed
+                      qed
+                    qed
+                  qed
+                qed
+              qed
+            next
+              case c_h
+              by solve( !KU( ~ps_c ) @ #vk.21 )
+            qed
+          qed
+        next
+          case c_aenc
+          solve( !KU( h(~ps_c) ) @ #vk.5 )
+            case S4_Alice_invites_Charlie
+            by solve( !KU( ~sk_c.2 ) @ #vk.25 )
+          next
+            case S5_Charlie_update
+            solve( !KU( node_sk(h(adec(cipher, node_sk(h(~ps_a))))) ) @ #vk.21 )
+              case c_node_sk
+              solve( !KU( h(adec(cipher, node_sk(h(~ps_a)))) ) @ #vk.20 )
+                case S4_Alice_invites_Charlie
+                by solve( !KU( ~sk_c.2 ) @ #vk.26 )
+              next
+                case c_h
+                solve( !KU( adec(cipher, node_sk(h(~ps_a))) ) @ #vk.22 )
+                  case c_adec
+                  solve( !KU( node_sk(h(~ps_a)) ) @ #vk.23 )
+                    case c_node_sk
+                    solve( !KU( h(<'ep3', h(adec(cipher, node_sk(h(~ps_a))))>) ) @ #vk.23 )
+                      case S4_Alice_invites_Charlie_case_1
+                      by solve( !KU( ~sk_c.2 ) @ #vk.29 )
+                    next
+                      case S4_Alice_invites_Charlie_case_2
+                      by solve( !KU( ~sk_c.2 ) @ #vk.29 )
+                    next
+                      case c_h
+                      solve( !KU( h(~ps_a) ) @ #vk.25 )
+                        case S2_Alice_invites_Bob
+                        by solve( !KU( ~sk_b ) @ #vk.27 )
+                      next
+                        case S4_Alice_invites_Charlie
+                        by solve( !KU( ~sk_c.2 ) @ #vk.31 )
+                      next
+                        case c_h
+                        by solve( !KU( ~ps_a ) @ #vk.27 )
+                      qed
+                    qed
+                  qed
+                qed
+              qed
+            qed
+          next
+            case c_h
+            by solve( !KU( ~ps_c ) @ #vk.21 )
+          qed
+        qed
+      next
+        case split_case_2
+        solve( !KU( aenc(<'Charlie', h(ps_x_new), h(<'ep3', h(ps_x_new)>)>,
+                         pk(~sk_c.1))
+               ) @ #vk.4 )
+          case S4_Alice_invites_Charlie
+          solve( splitEqs(3) )
+            case split_case_1
+            solve( !KU( h(~ps_c) ) @ #vk.5 )
+              case S4_Alice_invites_Charlie
+              by solve( !KU( ~sk_c.2 ) @ #vk.25 )
+            next
+              case S5_Charlie_update
+              solve( !KU( node_sk(h(adec(cipher, node_sk(h(~ps_a))))) ) @ #vk.21 )
+                case c_node_sk
+                solve( !KU( aenc(adec(cipher, node_sk(h(~ps_a))),
+                                 pk(node_sk(h(~ps_a.1))))
+                       ) @ #vk.14 )
+                  case c_aenc
+                  solve( !KU( adec(cipher, node_sk(h(~ps_a))) ) @ #vk.23 )
+                    case c_adec
+                    solve( !KU( node_sk(h(~ps_a)) ) @ #vk.25 )
+                      case c_node_sk
+                      solve( !KU( h(adec(cipher, node_sk(h(~ps_a)))) ) @ #vk.24 )
+                        case S4_Alice_invites_Charlie
+                        by solve( !KU( ~sk_c.2 ) @ #vk.31 )
+                      next
+                        case c_h
+                        solve( !KU( pk(node_sk(h(~ps_a.1))) ) @ #vk.25 )
+                          case c_pk
+                          solve( !KU( node_sk(h(~ps_a.1)) ) @ #vk.27 )
+                            case c_node_sk
+                            solve( !KU( h(~ps_a) ) @ #vk.27 )
+                              case S2_Alice_invites_Bob
+                              by solve( !KU( ~sk_b.1 ) @ #vk.29 )
+                            next
+                              case S4_Alice_invites_Charlie
+                              by solve( !KU( ~sk_c.2 ) @ #vk.33 )
+                            next
+                              case c_h
+                              by solve( !KU( ~ps_a ) @ #vk.29 )
+                            qed
+                          qed
+                        qed
+                      qed
+                    qed
+                  qed
+                qed
+              qed
+            next
+              case c_h
+              by solve( !KU( ~ps_c ) @ #vk.21 )
+            qed
+          next
+            case split_case_2
+            solve( !KU( h(~ps_c) ) @ #vk.5 )
+              case S4_Alice_invites_Charlie
+              by solve( !KU( ~sk_c.2 ) @ #vk.25 )
+            next
+              case S5_Charlie_update
+              solve( !KU( aenc(ps_x_new, pk(node_sk(h(~ps_a)))) ) @ #vk.13 )
+                case S3_Bob_update
+                solve( !KU( node_sk(h(h(~ps_b))) ) @ #vk.21 )
+                  case c_node_sk
+                  solve( !KU( sign(<'Bob', h(~ps_a), joiner>, ~sk_alice.2) ) @ #vk.24 )
+                    case S2_Alice_invites_Bob
+                    solve( !KU( aenc(h(~ps_b), pk(node_sk(h(~ps_a.1)))) ) @ #vk.21 )
+                      case S3_Bob_update
+                      solve( !KU( aenc(<'Bob', h(~ps_a), h(<~epoch0, h(h(~ps_a))>)>,
+                                       pk(~sk_b.1))
+                             ) @ #vk.18 )
+                        case S2_Alice_invites_Bob
+                        solve( !KU( h(h(~ps_b)) ) @ #vk.19 )
+                          case S4_Alice_invites_Charlie
+                          by solve( !KU( ~sk_c.1 ) @ #vk.24 )
+                        next
+                          case c_h
+                          solve( !KU( h(~ps_b) ) @ #vk.20 )
+                            case S3_Bob_update
+                            solve( !KU( node_sk(h(~ps_a)) ) @ #vk.21 )
+                              case c_node_sk
+                              solve( !KU( h(~ps_a) ) @ #vk.22 )
+                                case S2_Alice_invites_Bob
+                                by solve( !KU( ~sk_b ) @ #vk.23 )
+                              next
+                                case S4_Alice_invites_Charlie
+                                by solve( !KU( ~sk_c.1 ) @ #vk.27 )
+                              next
+                                case c_h
+                                by solve( !KU( ~ps_a ) @ #vk.23 )
+                              qed
+                            qed
+                          next
+                            case S4_Alice_invites_Charlie
+                            by solve( !KU( ~sk_c.1 ) @ #vk.25 )
+                          next
+                            case c_h
+                            by solve( !KU( ~ps_b ) @ #vk.21 )
+                          qed
+                        qed
+                      next
+                        case c_aenc
+                        solve( !KU( h(h(~ps_b)) ) @ #vk.19 )
+                          case S4_Alice_invites_Charlie
+                          by solve( !KU( ~sk_c.1 ) @ #vk.30 )
+                        next
+                          case c_h
+                          solve( !KU( h(~ps_a) ) @ #vk.24 )
+                            case S2_Alice_invites_Bob
+                            by solve( !KU( ~sk_b ) @ #vk.27 )
+                          next
+                            case S4_Alice_invites_Charlie
+                            by solve( !KU( ~sk_c.1 ) @ #vk.31 )
+                          next
+                            case c_h
+                            by solve( !KU( ~ps_a ) @ #vk.27 )
+                          qed
+                        qed
+                      qed
+                    next
+                      case c_aenc
+                      solve( !KU( aenc(<'Bob', h(~ps_a), h(<~epoch0, h(h(~ps_a))>)>,
+                                       pk(~sk_b.2))
+                             ) @ #vk.24 )
+                        case S2_Alice_invites_Bob
+                        solve( !KU( h(h(~ps_b)) ) @ #vk.25 )
+                          case S4_Alice_invites_Charlie
+                          by solve( !KU( ~sk_c.2 ) @ #vk.32 )
+                        next
+                          case c_h
+                          solve( !KU( h(~ps_b) ) @ #vk.26 )
+                            case S3_Bob_update
+                            solve( !KU( node_sk(h(~ps_a)) ) @ #vk.28 )
+                              case c_node_sk
+                              solve( !KU( pk(node_sk(h(~ps_a.1))) ) @ #vk.28 )
+                                case c_pk
+                                solve( !KU( node_sk(h(~ps_a.1)) ) @ #vk.30 )
+                                  case c_node_sk
+                                  solve( !KU( h(~ps_a) ) @ #vk.30 )
+                                    case S2_Alice_invites_Bob
+                                    by solve( !KU( ~sk_b ) @ #vk.32 )
+                                  next
+                                    case S4_Alice_invites_Charlie
+                                    by solve( !KU( ~sk_c.2 ) @ #vk.36 )
+                                  next
+                                    case c_h
+                                    by solve( !KU( ~ps_a ) @ #vk.32 )
+                                  qed
+                                qed
+                              qed
+                            qed
+                          next
+                            case S4_Alice_invites_Charlie
+                            by solve( !KU( ~sk_c.2 ) @ #vk.32 )
+                          next
+                            case c_h
+                            by solve( !KU( ~ps_b ) @ #vk.28 )
+                          qed
+                        qed
+                      next
+                        case c_aenc
+                        solve( !KU( h(h(~ps_b)) ) @ #vk.25 )
+                          case S4_Alice_invites_Charlie
+                          by solve( !KU( ~sk_c.2 ) @ #vk.38 )
+                        next
+                          case c_h
+                          solve( !KU( h(~ps_b) ) @ #vk.26 )
+                            case S3_Bob_update
+                            solve( !KU( node_sk(h(~ps_a)) ) @ #vk.34 )
+                              case c_node_sk
+                              solve( !KU( pk(node_sk(h(~ps_a.1))) ) @ #vk.28 )
+                                case c_pk
+                                solve( !KU( node_sk(h(~ps_a.1)) ) @ #vk.35 )
+                                  case c_node_sk
+                                  solve( !KU( h(~ps_a) ) @ #vk.34 )
+                                    case S2_Alice_invites_Bob
+                                    by solve( !KU( ~sk_b ) @ #vk.37 )
+                                  next
+                                    case S4_Alice_invites_Charlie
+                                    by solve( !KU( ~sk_c.2 ) @ #vk.41 )
+                                  next
+                                    case c_h
+                                    by solve( !KU( ~ps_a ) @ #vk.37 )
+                                  qed
+                                qed
+                              qed
+                            qed
+                          next
+                            case S4_Alice_invites_Charlie
+                            by solve( !KU( ~sk_c.2 ) @ #vk.38 )
+                          next
+                            case c_h
+                            by solve( !KU( ~ps_b ) @ #vk.34 )
+                          qed
+                        qed
+                      qed
+                    qed
+                  next
+                    case c_sign
+                    by solve( !KU( ~sk_alice.2 ) @ #vk.27 )
+                  qed
+                qed
+              next
+                case S5_Charlie_update
+                solve( !KU( node_sk(h(h(~ps_c.1))) ) @ #vk.21 )
+                  case c_node_sk
+                  solve( !KU( sign(<'Charlie', h(~ps_a), joiner>, ~sk_alice.2) ) @ #vk.24 )
+                    case S4_Alice_invites_Charlie
+                    solve( !KU( aenc(h(~ps_c.1), pk(node_sk(h(~ps_a.1)))) ) @ #vk.24 )
+                      case S5_Charlie_update
+                      solve( !KU( aenc(<'Charlie', h(~ps_a), h(<'ep3', h(~ps_a)>)>,
+                                       pk(~sk_c.2))
+                             ) @ #vk.21 )
+                        case S4_Alice_invites_Charlie
+                        solve( !KU( h(h(~ps_c.1)) ) @ #vk.25 )
+                          case S4_Alice_invites_Charlie
+                          by solve( !KU( ~sk_c.3 ) @ #vk.36 )
+                        next
+                          case c_h
+                          solve( !KU( aenc(~ps_a, pk(node_sk(h(~ps_a.1)))) ) @ #vk.27 )
+                            case c_aenc
+                            by solve( !KU( ~ps_a ) @ #vk.33 )
+                          qed
+                        qed
+                      next
+                        case c_aenc
+                        solve( !KU( h(h(~ps_c.1)) ) @ #vk.22 )
+                          case S4_Alice_invites_Charlie
+                          by solve( !KU( ~sk_c.3 ) @ #vk.36 )
+                        next
+                          case c_h
+                          solve( !KU( aenc(~ps_a, pk(node_sk(h(~ps_a.1)))) ) @ #vk.24 )
+                            case c_aenc
+                            by solve( !KU( ~ps_a ) @ #vk.33 )
+                          qed
+                        qed
+                      qed
+                    next
+                      case c_aenc
+                      solve( !KU( aenc(<'Charlie', h(~ps_a), h(<'ep3', h(~ps_a)>)>,
+                                       pk(~sk_c.3))
+                             ) @ #vk.27 )
+                        case S4_Alice_invites_Charlie
+                        solve( !KU( h(h(~ps_c.1)) ) @ #vk.31 )
+                          case S4_Alice_invites_Charlie
+                          by solve( !KU( ~sk_c.4 ) @ #vk.44 )
+                        next
+                          case c_h
+                          solve( !KU( aenc(~ps_a, pk(node_sk(h(~ps_a.2)))) ) @ #vk.33 )
+                            case c_aenc
+                            by solve( !KU( ~ps_a ) @ #vk.40 )
+                          qed
+                        qed
+                      next
+                        case c_aenc
+                        solve( !KU( h(h(~ps_c.1)) ) @ #vk.28 )
+                          case S4_Alice_invites_Charlie
+                          by solve( !KU( ~sk_c.4 ) @ #vk.44 )
+                        next
+                          case c_h
+                          solve( !KU( aenc(~ps_a, pk(node_sk(h(~ps_a.2)))) ) @ #vk.30 )
+                            case c_aenc
+                            by solve( !KU( ~ps_a ) @ #vk.40 )
+                          qed
+                        qed
+                      qed
+                    qed
+                  next
+                    case c_sign
+                    by solve( !KU( ~sk_alice.2 ) @ #vk.27 )
+                  qed
+                qed
+              next
+                case c_aenc
+                solve( !KU( aenc(ps_x_new, pk(node_sk(h(~ps_a.1)))) ) @ #vk.19 )
+                  case S3_Bob_update
+                  solve( !KU( node_sk(h(h(~ps_b))) ) @ #vk.21 )
+                    case c_node_sk
+                    solve( !KU( sign(<'Bob', h(~ps_a), joiner>, ~sk_alice.2) ) @ #vk.26 )
+                      case S2_Alice_invites_Bob
+                      solve( !KU( pk(node_sk(h(~ps_a.1))) ) @ #vk.24 )
+                        case c_pk
+                        solve( !KU( node_sk(h(~ps_a.1)) ) @ #vk.28 )
+                          case c_node_sk
+                          solve( !KU( aenc(<'Bob', h(~ps_a), h(<~epoch0, h(h(~ps_a))>)>,
+                                           pk(~sk_b.2))
+                                 ) @ #vk.27 )
+                            case S2_Alice_invites_Bob
+                            solve( !KU( h(~ps_b) ) @ #vk.27 )
+                              case S3_Bob_update
+                              solve( !KU( node_sk(h(~ps_a)) ) @ #vk.30 )
+                                case c_node_sk
+                                solve( !KU( h(h(~ps_b)) ) @ #vk.29 )
+                                  case S4_Alice_invites_Charlie
+                                  by solve( !KU( ~sk_c.2 ) @ #vk.36 )
+                                next
+                                  case c_h
+                                  solve( !KU( h(~ps_a.1) ) @ #vk.30 )
+                                    case S2_Alice_invites_Bob
+                                    by solve( !KU( ~sk_b.1 ) @ #vk.32 )
+                                  next
+                                    case S4_Alice_invites_Charlie
+                                    by solve( !KU( ~sk_c.2 ) @ #vk.36 )
+                                  next
+                                    case c_h
+                                    by solve( !KU( ~ps_a.1 ) @ #vk.32 )
+                                  qed
+                                qed
+                              qed
+                            next
+                              case S4_Alice_invites_Charlie
+                              by solve( !KU( ~sk_c.2 ) @ #vk.34 )
+                            next
+                              case c_h
+                              by solve( !KU( ~ps_b ) @ #vk.30 )
+                            qed
+                          next
+                            case c_aenc
+                            solve( !KU( h(~ps_b) ) @ #vk.27 )
+                              case S3_Bob_update
+                              solve( !KU( node_sk(h(~ps_a)) ) @ #vk.36 )
+                                case c_node_sk
+                                solve( !KU( h(h(~ps_b)) ) @ #vk.29 )
+                                  case S4_Alice_invites_Charlie
+                                  by solve( !KU( ~sk_c.2 ) @ #vk.41 )
+                                next
+                                  case c_h
+                                  solve( !KU( h(~ps_a.1) ) @ #vk.30 )
+                                    case S2_Alice_invites_Bob
+                                    by solve( !KU( ~sk_b.1 ) @ #vk.37 )
+                                  next
+                                    case S4_Alice_invites_Charlie
+                                    by solve( !KU( ~sk_c.2 ) @ #vk.41 )
+                                  next
+                                    case c_h
+                                    by solve( !KU( ~ps_a.1 ) @ #vk.37 )
+                                  qed
+                                qed
+                              qed
+                            next
+                              case S4_Alice_invites_Charlie
+                              by solve( !KU( ~sk_c.2 ) @ #vk.40 )
+                            next
+                              case c_h
+                              by solve( !KU( ~ps_b ) @ #vk.36 )
+                            qed
+                          qed
+                        qed
+                      qed
+                    next
+                      case c_sign
+                      by solve( !KU( ~sk_alice.2 ) @ #vk.29 )
+                    qed
+                  qed
+                next
+                  case S5_Charlie_update
+                  solve( !KU( node_sk(h(h(~ps_c.1))) ) @ #vk.21 )
+                    case c_node_sk
+                    solve( !KU( sign(<'Charlie', h(~ps_a), joiner>, ~sk_alice.2) ) @ #vk.26 )
+                      case S4_Alice_invites_Charlie
+                      solve( !KU( pk(node_sk(h(~ps_a.1))) ) @ #vk.27 )
+                        case c_pk
+                        solve( !KU( node_sk(h(~ps_a.1)) ) @ #vk.34 )
+                          case c_node_sk
+                          solve( !KU( aenc(<'Charlie', h(~ps_a), h(<'ep3', h(~ps_a)>)>,
+                                           pk(~sk_c.3))
+                                 ) @ #vk.30 )
+                            case S4_Alice_invites_Charlie
+                            solve( !KU( h(~ps_c.1) ) @ #vk.33 )
+                              case S4_Alice_invites_Charlie
+                              by solve( !KU( ~sk_c.4 ) @ #vk.46 )
+                            next
+                              case S5_Charlie_update
+                              solve( !KU( node_sk(h(~ps_a)) ) @ #vk.42 )
+                                case c_node_sk
+                                solve( !KU( h(h(~ps_c.1)) ) @ #vk.35 )
+                                  case S4_Alice_invites_Charlie
+                                  by solve( !KU( ~sk_c.4 ) @ #vk.48 )
+                                next
+                                  case c_h
+                                  solve( !KU( aenc(~ps_a, pk(node_sk(h(~ps_a.2)))) ) @ #vk.37 )
+                                    case c_aenc
+                                    by solve( !KU( ~ps_a ) @ #vk.44 )
+                                  qed
+                                qed
+                              qed
+                            next
+                              case c_h
+                              by solve( !KU( ~ps_c.1 ) @ #vk.42 )
+                            qed
+                          next
+                            case c_aenc
+                            solve( !KU( h(~ps_c.1) ) @ #vk.30 )
+                              case S4_Alice_invites_Charlie
+                              by solve( !KU( ~sk_c.4 ) @ #vk.46 )
+                            next
+                              case S5_Charlie_update
+                              solve( !KU( node_sk(h(~ps_a)) ) @ #vk.42 )
+                                case c_node_sk
+                                solve( !KU( h(h(~ps_c.1)) ) @ #vk.32 )
+                                  case S4_Alice_invites_Charlie
+                                  by solve( !KU( ~sk_c.4 ) @ #vk.47 )
+                                next
+                                  case c_h
+                                  solve( !KU( aenc(~ps_a, pk(node_sk(h(~ps_a.2)))) ) @ #vk.34 )
+                                    case c_aenc
+                                    by solve( !KU( ~ps_a ) @ #vk.43 )
+                                  qed
+                                qed
+                              qed
+                            next
+                              case c_h
+                              by solve( !KU( ~ps_c.1 ) @ #vk.42 )
+                            qed
+                          qed
+                        qed
+                      qed
+                    next
+                      case c_sign
+                      by solve( !KU( ~sk_alice.2 ) @ #vk.29 )
+                    qed
+                  qed
+                next
+                  case c_aenc
+                  solve( !KU( pk(node_sk(h(~ps_a))) ) @ #vk.23 )
+                    case c_pk
+                    solve( !KU( node_sk(h(~ps_a)) ) @ #vk.25 )
+                      case c_node_sk
+                      solve( !KU( pk(node_sk(h(~ps_a.1))) ) @ #vk.25 )
+                        case c_pk
+                        solve( !KU( node_sk(h(~ps_a.1)) ) @ #vk.27 )
+                          case c_node_sk
+                          solve( !KU( h(~ps_a) ) @ #vk.27 )
+                            case S2_Alice_invites_Bob
+                            by solve( !KU( ~sk_b ) @ #vk.29 )
+                          next
+                            case S4_Alice_invites_Charlie
+                            by solve( !KU( ~sk_c.2 ) @ #vk.33 )
+                          next
+                            case c_h
+                            by solve( !KU( ~ps_a ) @ #vk.29 )
+                          qed
+                        qed
+                      qed
+                    qed
+                  qed
+                qed
+              qed
+            next
+              case c_h
+              by solve( !KU( ~ps_c ) @ #vk.21 )
+            qed
+          qed
+        next
+          case c_aenc
+          solve( !KU( h(~ps_c) ) @ #vk.5 )
+            case S4_Alice_invites_Charlie
+            by solve( !KU( ~sk_c.2 ) @ #vk.25 )
+          next
+            case S5_Charlie_update
+            solve( !KU( aenc(ps_x_new, pk(node_sk(h(~ps_a)))) ) @ #vk.11 )
+              case S3_Bob_update
+              solve( !KU( node_sk(h(h(~ps_b))) ) @ #vk.21 )
+                case c_node_sk
+                solve( !KU( sign(<'Bob', h(~ps_a), joiner>, ~sk_alice.1) ) @ #vk.24 )
+                  case S2_Alice_invites_Bob
+                  solve( !KU( h(h(~ps_b)) ) @ #vk.21 )
+                    case S4_Alice_invites_Charlie
+                    by solve( !KU( ~sk_c.2 ) @ #vk.29 )
+                  next
+                    case c_h
+                    solve( !KU( h(<'ep3', h(h(~ps_b))>) ) @ #vk.23 )
+                      case S4_Alice_invites_Charlie_case_1
+                      by solve( !KU( ~sk_c.2 ) @ #vk.30 )
+                    next
+                      case S4_Alice_invites_Charlie_case_2
+                      by solve( !KU( ~sk_c.2 ) @ #vk.30 )
+                    next
+                      case c_h
+                      solve( !KU( aenc(<'Bob', h(~ps_a), h(<~epoch0, h(h(~ps_a))>)>,
+                                       pk(~sk_b.1))
+                             ) @ #vk.25 )
+                        case S2_Alice_invites_Bob
+                        solve( !KU( h(~ps_b) ) @ #vk.26 )
+                          case S3_Bob_update
+                          solve( !KU( node_sk(h(~ps_a)) ) @ #vk.28 )
+                            case c_node_sk
+                            solve( !KU( h(~ps_a) ) @ #vk.29 )
+                              case S2_Alice_invites_Bob
+                              by solve( !KU( ~sk_b ) @ #vk.30 )
+                            next
+                              case S4_Alice_invites_Charlie
+                              by solve( !KU( ~sk_c.2 ) @ #vk.34 )
+                            next
+                              case c_h
+                              by solve( !KU( ~ps_a ) @ #vk.30 )
+                            qed
+                          qed
+                        next
+                          case S4_Alice_invites_Charlie
+                          by solve( !KU( ~sk_c.2 ) @ #vk.32 )
+                        next
+                          case c_h
+                          by solve( !KU( ~ps_b ) @ #vk.28 )
+                        qed
+                      next
+                        case c_aenc
+                        solve( !KU( h(~ps_b) ) @ #vk.26 )
+                          case S3_Bob_update
+                          solve( !KU( node_sk(h(~ps_a)) ) @ #vk.34 )
+                            case c_node_sk
+                            solve( !KU( h(~ps_a) ) @ #vk.33 )
+                              case S2_Alice_invites_Bob
+                              by solve( !KU( ~sk_b ) @ #vk.35 )
+                            next
+                              case S4_Alice_invites_Charlie
+                              by solve( !KU( ~sk_c.2 ) @ #vk.39 )
+                            next
+                              case c_h
+                              by solve( !KU( ~ps_a ) @ #vk.35 )
+                            qed
+                          qed
+                        next
+                          case S4_Alice_invites_Charlie
+                          by solve( !KU( ~sk_c.2 ) @ #vk.38 )
+                        next
+                          case c_h
+                          by solve( !KU( ~ps_b ) @ #vk.34 )
+                        qed
+                      qed
+                    qed
+                  qed
+                next
+                  case c_sign
+                  by solve( !KU( ~sk_alice.1 ) @ #vk.26 )
+                qed
+              qed
+            next
+              case S5_Charlie_update
+              solve( !KU( node_sk(h(h(~ps_c.1))) ) @ #vk.21 )
+                case c_node_sk
+                solve( !KU( sign(<'Charlie', h(~ps_a), joiner>, ~sk_alice.1) ) @ #vk.24 )
+                  case S4_Alice_invites_Charlie
+                  solve( !KU( h(h(~ps_c.1)) ) @ #vk.24 )
+                    case S4_Alice_invites_Charlie
+                    by solve( !KU( ~sk_c.4 ) @ #vk.35 )
+                  next
+                    case c_h
+                    solve( !KU( h(<'ep3', h(h(~ps_c.1))>) ) @ #vk.26 )
+                      case S4_Alice_invites_Charlie_case_1
+                      by solve( !KU( ~sk_c.4 ) @ #vk.36 )
+                    next
+                      case S4_Alice_invites_Charlie_case_2
+                      by solve( !KU( ~sk_c.4 ) @ #vk.36 )
+                    next
+                      case c_h
+                      solve( !KU( aenc(<'Charlie', h(~ps_a), h(<'ep3', h(~ps_a)>)>,
+                                       pk(~sk_c.3))
+                             ) @ #vk.28 )
+                        case S4_Alice_invites_Charlie
+                        solve( !KU( aenc(~ps_a, pk(node_sk(h(~ps_a.1)))) ) @ #vk.33 )
+                          case c_aenc
+                          by solve( !KU( ~ps_a ) @ #vk.40 )
+                        qed
+                      next
+                        case c_aenc
+                        solve( !KU( aenc(~ps_a, pk(node_sk(h(~ps_a.1)))) ) @ #vk.31 )
+                          case c_aenc
+                          by solve( !KU( ~ps_a ) @ #vk.39 )
+                        qed
+                      qed
+                    qed
+                  qed
+                next
+                  case c_sign
+                  by solve( !KU( ~sk_alice.1 ) @ #vk.26 )
+                qed
+              qed
+            next
+              case c_aenc
+              solve( !KU( pk(node_sk(h(~ps_a))) ) @ #vk.23 )
+                case c_pk
+                solve( !KU( node_sk(h(~ps_a)) ) @ #vk.24 )
+                  case c_node_sk
+                  solve( !KU( h(~ps_a) ) @ #vk.25 )
+                    case S2_Alice_invites_Bob
+                    by solve( !KU( ~sk_b ) @ #vk.26 )
+                  next
+                    case S4_Alice_invites_Charlie
+                    by solve( !KU( ~sk_c.2 ) @ #vk.30 )
+                  next
+                    case c_h
+                    by solve( !KU( ~ps_a ) @ #vk.26 )
+                  qed
+                qed
+              qed
+            qed
+          next
+            case c_h
+            by solve( !KU( ~ps_c ) @ #vk.21 )
+          qed
+        qed
+      qed
+    next
+      case c_sign
+      by solve( !KU( ~sk_alice ) @ #vk.7 )
+    qed
+  qed
+qed
+
+/* All wellformedness checks were successful. */
+
+/*
+Generated from:
+Tamarin version 1.12.0
+Maude version 3.5.1
+Git revision: 82780bbaf3328a45f624ddb41e51bf75425f851c, branch: HEAD
+Compiled at: 2026-08-21 06:15:16.651364526 UTC
+*/
+
+end
+
+==============================================================================
+summary of summaries:
+
+analyzed: theories/stages/stage4_p2_public_valid_kp.spthy
+
+  processing time: 5.92s
+  
+  exec_normal_flow_alice_recv (exists-trace): analysis incomplete (1 steps)
+  exec_normal_flow_bob_recv (exists-trace): analysis incomplete (1 steps)
+  L1_baseline_secrecy (all-traces): verified (244 steps)
+
+==============================================================================

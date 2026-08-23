@@ -1,0 +1,10 @@
+stage,theory,lemma,expected,observed,status,steps,wall_seconds,max_rss_kb,exit_code,sources_step,wellformedness,warnings,theory_sha256,wall_seconds_authoritative,wall_seconds_note
+stage1,theories/stages/stage1_private_kdf.spthy,L1_baseline_secrecy,verified,verified,OK,3,0.61,88928,0,1,successful,clean,fe5141bcfc3257bebc3076637d0a7a98dadab40cace8dab470b02965dc161238,0.61,
+stage1c,theories/stages/stage1c_public_kdf_control.spthy,L1_baseline_secrecy,falsified,falsified,OK,10,50.65,2676820,0,2,successful,clean,582b9643ab0172aec03e13c8135a6abdbb36696f33d841af600bc3eaf0aa40bb,50.65,
+stage2,theories/stages/stage2_private_fs.spthy,L2_forward_secrecy,verified,verified,OK,18,1.17,103920,0,1,successful,clean,aeee4d6833bd38374ac12bd1eca7ac8768b91f1e761bf46764ab5c4fd02635a8,1.17,
+stage3,theories/stages/stage3_private_pcs.spthy,L3_post_compromise_security,verified,verified,OK,18,-2.41,101620,0,1,successful,clean,dca9d4e6e484282513b2bdb91377de1d02143fddbaa96ca416c3949d768ad7a3,1.342,monotonic mean of 10 repetitions; see results/stage3_monotonic_repeat10/
+stage4_p1,theories/stages/stage4_p1_public_unauth_kp.spthy,L1_baseline_secrecy,falsified,falsified,OK,16,1.40,110144,0,2,successful,clean,6d85c7c6fa63f78e93b469ccc0b1c603703effb7fd0c404c7b1f649461f6f518,1.40,
+stage4_p2,theories/stages/stage4_p2_public_valid_kp.spthy,L1_baseline_secrecy,verified,verified,OK,244,5.31,188732,0,2,successful,clean,0942508c53afb5056bbb186c711ffc188544f9482ad2535c7b732dcff3bfcfe2,5.31,
+stage5,theories/stages/stage5_public_fs.spthy,L2_forward_secrecy,verified,verified,OK,1686,52.94,1071060,0,2,successful,clean,5c1e93fbccfa831896bcd82531e4d7c5f63130a6574fdbce18f6f44bf3e52607,52.94,
+stage6_v1,theories/stages/stage6_v1_simplified_pcs.spthy,L3_post_compromise_security,falsified,falsified,OK,17,11.25,473200,0,2,successful,clean,d28244a44ce9bab289b4f11fe1736fc73b0fcb3660577ae4061c63630a37928f,11.25,
+stage7_v2,theories/stages/stage7_v2_copath_pcs.spthy,L3_post_compromise_security,verified,verified,OK,4336,194.58,4828540,0,2,successful,clean,054de69086fdbf5cd1f4158b18edde5a0434e61436080d3ccf3b84cf7e80be03,194.58,

@@ -1,0 +1,34 @@
+artifact_revision=corrected-v2-historical-stages
+run_utc=2026-08-22T03:47:23Z
+repo_root=/home/mieno/mls-tamarin-stage-v2/mls-tamarin-repo-corrected-v2
+tamarin=/home/mieno/tamarin-clean-1.12.0/bin/tamarin-prover-1.12.0-clean
+tamarin_sha256=39cfd71ce7cd9028badbcf22729c807a78040ebc9665207d52f140994bf596a0
+final_model_sha256=054de69086fdbf5cd1f4158b18edde5a0434e61436080d3ccf3b84cf7e80be03
+budget_seconds=3600
+
+--- Tamarin version ---
+maude tool: 'maude'
+ checking version: tamarin-prover 1.12.0, (C) David Basin, Cas Cremers, Jannik Dreier, Simon Meier, Ralf Sasse, Benedikt Schmidt, 2010-2023
+
+This program comes with ABSOLUTELY NO WARRANTY. It is free software, and you
+are welcome to redistribute it according to its LICENSE, see
+'https://github.com/tamarin-prover/tamarin-prover/blob/master/LICENSE'.
+
+3.5.1. OK.
+ checking installation: OK.
+Generated from:
+Tamarin version 1.12.0
+Maude version 3.5.1
+Git revision: 82780bbaf3328a45f624ddb41e51bf75425f851c, branch: HEAD
+Compiled at: 2026-08-21 06:15:16.651364526 UTC
+
+--- stage hashes ---
+fe5141bcfc3257bebc3076637d0a7a98dadab40cace8dab470b02965dc161238  theories/stages/stage1_private_kdf.spthy
+582b9643ab0172aec03e13c8135a6abdbb36696f33d841af600bc3eaf0aa40bb  theories/stages/stage1c_public_kdf_control.spthy
+aeee4d6833bd38374ac12bd1eca7ac8768b91f1e761bf46764ab5c4fd02635a8  theories/stages/stage2_private_fs.spthy
+dca9d4e6e484282513b2bdb91377de1d02143fddbaa96ca416c3949d768ad7a3  theories/stages/stage3_private_pcs.spthy
+6d85c7c6fa63f78e93b469ccc0b1c603703effb7fd0c404c7b1f649461f6f518  theories/stages/stage4_p1_public_unauth_kp.spthy
+0942508c53afb5056bbb186c711ffc188544f9482ad2535c7b732dcff3bfcfe2  theories/stages/stage4_p2_public_valid_kp.spthy
+5c1e93fbccfa831896bcd82531e4d7c5f63130a6574fdbce18f6f44bf3e52607  theories/stages/stage5_public_fs.spthy
+d28244a44ce9bab289b4f11fe1736fc73b0fcb3660577ae4061c63630a37928f  theories/stages/stage6_v1_simplified_pcs.spthy
+054de69086fdbf5cd1f4158b18edde5a0434e61436080d3ccf3b84cf7e80be03  theories/stages/stage7_v2_copath_pcs.spthy

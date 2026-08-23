@@ -1,0 +1,5 @@
+stage,theory,theory_sha256,verdict,steps,wall_seconds,max_rss_kb,exit_code,sources_step,warnings
+stage1,theories/stages/stage1_private_kdf.spthy,fe5141bcfc3257bebc3076637d0a7a98dadab40cace8dab470b02965dc161238,verified,3,0.64,89152,0,1,clean
+stage1c,theories/stages/stage1c_public_kdf_control.spthy,582b9643ab0172aec03e13c8135a6abdbb36696f33d841af600bc3eaf0aa40bb,falsified,10,47.04,2677964,0,2,clean
+stage4_p1,theories/stages/stage4_p1_public_unauth_kp.spthy,6d85c7c6fa63f78e93b469ccc0b1c603703effb7fd0c404c7b1f649461f6f518,falsified,16,1.52,108608,0,2,clean
+stage4_p2,theories/stages/stage4_p2_public_valid_kp.spthy,0942508c53afb5056bbb186c711ffc188544f9482ad2535c7b732dcff3bfcfe2,verified,244,5.97,179264,0,2,clean
